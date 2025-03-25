@@ -7,8 +7,8 @@ set_property IOSTANDARD LVCMOS33 [get_ports *]
 
 
 # Clock signal
-set_property PACKAGE_PIN W5 [get_ports CLK100MHZ]							
-	create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK100MHZ]
+set_property PACKAGE_PIN W5 [get_ports clock]							
+	create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports clock]
  
 # Switches
 #set_property PACKAGE_PIN V17 [get_ports {sw[0]}]					
@@ -66,7 +66,7 @@ set_property PACKAGE_PIN W5 [get_ports CLK100MHZ]
 
 
 ##Buttons
-#set_property PACKAGE_PIN U18 [get_ports btnC]						
+set_property PACKAGE_PIN U18 [get_ports reset]						
 #set_property PACKAGE_PIN T18 [get_ports btnU]						
 #set_property PACKAGE_PIN W19 [get_ports btnL]						
 #set_property PACKAGE_PIN T17 [get_ports btnR]						
@@ -135,39 +135,39 @@ set_property PACKAGE_PIN W5 [get_ports CLK100MHZ]
 
 #Pmod Header JXADC
 #Sch name = XA1_P
-set_property PACKAGE_PIN J3 [get_ports {vauxp6}]				
+#set_property PACKAGE_PIN J3 [get_ports {vauxp6}]				
 #Sch name = XA2_P
-set_property PACKAGE_PIN L3 [get_ports {vauxp14}]				
+#set_property PACKAGE_PIN L3 [get_ports {vauxp14}]				
 #Sch name = XA3_P
-set_property PACKAGE_PIN M2 [get_ports {vauxp7}]				
+#set_property PACKAGE_PIN M2 [get_ports {vauxp7}]				
 #Sch name = XA4_P
-set_property PACKAGE_PIN N2 [get_ports {vauxp15}]				
+#set_property PACKAGE_PIN N2 [get_ports {vauxp15}]				
 #Sch name = XA1_N
-set_property PACKAGE_PIN K3 [get_ports {vauxn6}]				
+#set_property PACKAGE_PIN K3 [get_ports {vauxn6}]				
 #Sch name = XA2_N
-set_property PACKAGE_PIN M3 [get_ports {vauxn14}]				
+#set_property PACKAGE_PIN M3 [get_ports {vauxn14}]				
 #Sch name = XA3_N
-set_property PACKAGE_PIN M1 [get_ports {vauxn7}]				
+#set_property PACKAGE_PIN M1 [get_ports {vauxn7}]				
 #Sch name = XA4_N
-set_property PACKAGE_PIN N1 [get_ports {vauxn15}]				
+#set_property PACKAGE_PIN N1 [get_ports {vauxn15}]				
 
 
 
 ##VGA Connector
-#set_property PACKAGE_PIN G19 [get_ports {vgaRed[0]}]				
-#set_property PACKAGE_PIN H19 [get_ports {vgaRed[1]}]				
-#set_property PACKAGE_PIN J19 [get_ports {vgaRed[2]}]				
-#set_property PACKAGE_PIN N19 [get_ports {vgaRed[3]}]				
-#set_property PACKAGE_PIN N18 [get_ports {vgaBlue[0]}]				
-#set_property PACKAGE_PIN L18 [get_ports {vgaBlue[1]}]				
-#set_property PACKAGE_PIN K18 [get_ports {vgaBlue[2]}]				
-#set_property PACKAGE_PIN J18 [get_ports {vgaBlue[3]}]				
-#set_property PACKAGE_PIN J17 [get_ports {vgaGreen[0]}]				
-#set_property PACKAGE_PIN H17 [get_ports {vgaGreen[1]}]				
-#set_property PACKAGE_PIN G17 [get_ports {vgaGreen[2]}]				
-#set_property PACKAGE_PIN D17 [get_ports {vgaGreen[3]}]				
-#set_property PACKAGE_PIN P19 [get_ports Hsync]						
-#set_property PACKAGE_PIN R19 [get_ports Vsync]						
+set_property PACKAGE_PIN G19 [get_ports {io_vga_red[0]}]				
+set_property PACKAGE_PIN H19 [get_ports {io_vga_red[1]}]				
+set_property PACKAGE_PIN J19 [get_ports {io_vga_red[2]}]				
+set_property PACKAGE_PIN N19 [get_ports {io_vga_red[3]}]				
+set_property PACKAGE_PIN N18 [get_ports {io_vga_blue[0]}]				
+set_property PACKAGE_PIN L18 [get_ports {io_vga_blue[1]}]				
+set_property PACKAGE_PIN K18 [get_ports {io_vga_blue[2]}]				
+set_property PACKAGE_PIN J18 [get_ports {io_vga_blue[3]}]				
+set_property PACKAGE_PIN J17 [get_ports {io_vga_green[0]}]				
+set_property PACKAGE_PIN H17 [get_ports {io_vga_green[1]}]				
+set_property PACKAGE_PIN G17 [get_ports {io_vga_green[2]}]				
+set_property PACKAGE_PIN D17 [get_ports {io_vga_green[3]}]				
+set_property PACKAGE_PIN P19 [get_ports io_vga_hsync]						
+set_property PACKAGE_PIN R19 [get_ports io_vga_vsync]						
 
 
 ##USB-RS232 Interface

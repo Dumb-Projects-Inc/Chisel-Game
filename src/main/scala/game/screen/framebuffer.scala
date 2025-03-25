@@ -2,7 +2,7 @@ package gameEngine.screen
 
 import chisel3._
 
-class FrameBuffer extends Module {
+class FrameBuffer(size: Int = 65536) extends Module {
   val io = IO(new Bundle {
     val address = Input(UInt(16.W))
     val data = Output(UInt(16.W))
@@ -12,8 +12,8 @@ class FrameBuffer extends Module {
   })
 
   // Each address can store red, green, and blue values
-  val frameBuf0 = SyncReadMem(65536, UInt(12.W))
-  val frameBuf1 = SyncReadMem(65536, UInt(12.W))
+  val frameBuf0 = SyncReadMem(size, UInt(12.W))
+  val frameBuf1 = SyncReadMem(size, UInt(12.W))
 
   val framebufSel = RegInit(false.B)
 
