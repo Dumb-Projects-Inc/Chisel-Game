@@ -8,7 +8,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 class MyModuleSpec extends AnyFlatSpec{
   behavior of "MyModule"
   it should "do something" in {
-    simulate(new MyModule) { c =>
+    simulate(new Engine) { c =>
       c.io.in.poke(0.U)
       c.clock.step()
       c.io.out.expect(0.U)
