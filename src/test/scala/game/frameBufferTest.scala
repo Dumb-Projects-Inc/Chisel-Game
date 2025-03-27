@@ -13,11 +13,15 @@ class FrameBufferSpec extends AnyFlatSpec with Matchers {
       fb.io.address.poke(10.U)
       fb.io.wrData.poke(123.U)
       fb.io.wrEn.poke(true.B)
-      fb.clock.step()
-      fb.io.wrEn.poke(false.B)
-      fb.clock.step()
 
-      fb.io.address.poke(10.U)
+      fb.clock.step(1)
+      
+      fb.io.data.expect(0.U)
+      fb.io.switch.poke(true.B)
+
+      fb.clock.step(1)
+
+      fb.io.data.expect(123.U)
       val readVal = fb.io.data.peek().litValue
       println(s"Read from address 10: $readVal")
     }
