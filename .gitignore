@@ -7,11 +7,16 @@
 .vscode
 .metals
 .bsp
+.devcontainer
+.bloop
 project
 target
-MyModule.sv
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 
 # End of https://www.toptal.com/developers/gitignore/api/scala
+vivado/Game_Engine
+generated/
+
+.direnv
