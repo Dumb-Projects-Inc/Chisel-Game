@@ -50,10 +50,10 @@ class VGATiming extends Module() {
 
     visible := (hCounter < hVisible) && (vCounter < vVisible)
     // Generate hsync signal (active low)
-    hsync := !(hCounter >= (hVisible + hFrontPorch) && hCounter < (hVisible + hFrontPorch + hSyncPulse))
+    hSync := !(hCounter >= (hVisible + hFrontPorch) && hCounter < (hVisible + hFrontPorch + hSyncPulse))
 
     // Generate vsync signal (active low)
-    vsync := !(vCounter >= (vVisible + vFrontPorch) && vCounter < (vVisible + vFrontPorch + vSyncPulse))
+    vSync := !(vCounter >= (vVisible + vFrontPorch) && vCounter < (vVisible + vFrontPorch + vSyncPulse))
 
     io.hSync := hSync
     io.vSync := vSync
