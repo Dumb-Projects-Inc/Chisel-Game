@@ -25,9 +25,6 @@ module TopModule (
     VGAController vga (
         .clock(clk25MHz),        // Base clock domain (still needed)
         .reset(~pll_locked),      // Hold reset until PLL locks
-
-        .in_pixelClock(clk25MHz), // VGA pixel clock
-
         .io_red(io_vga_red),
         .io_green(io_vga_green),
         .io_blue(io_vga_blue),
