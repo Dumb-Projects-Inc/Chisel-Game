@@ -34,8 +34,10 @@ class Engine extends Module {
 
 }
 
-object gameEngineMain {
+object gameEngineMain{
   def main(args: Array[String]): Unit = {
+    //Splitting files is expected, and the blackbox will generate syntax errors if not split
+    //TODO: change to chiselStage 
     emitVerilog(new Engine(), Array("--target-dir", "generated", "--split-verilog"))
   }
 }
