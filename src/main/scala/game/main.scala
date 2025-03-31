@@ -7,7 +7,6 @@ import gameEngine.screen._
 class Engine extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
-    val pixelClock = Input(Bool())
   })
 
   val framebuffer = Module(new FrameBuffer)
@@ -16,22 +15,8 @@ class Engine extends Module {
   framebuffer.io.wrData := 0.U
   framebuffer.io.switch := false.B
 
-
-  val pll = Module(new PLLBlackBox)
-  pll.io.clock := clock
-  pll.io.reset := false.B
-  val clk25MHz = pll.io.clk25MHz
-  val locked = pll.io.locked
-
-
-  withClockAndReset(clk25MHz, !locked) {
-    val controller = Module(new VGAController)
-    io.vga := controller.io
-
-  }
-
-  
-
+  val controller = Module(new VGAController)
+  io.vga := controller.io
 }
 
 object gameEngineMain{

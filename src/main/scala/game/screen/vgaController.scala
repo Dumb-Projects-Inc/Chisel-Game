@@ -27,16 +27,23 @@ class VGAController(i2cEn: Boolean = false ) extends Module {
   val xPos = Wire(UInt(10.W))
   val yPos = Wire(UInt(10.W))
 
-  val timing = Module(new VGATiming)
-  io.hsync := timing.io.hSync
-  io.vsync := timing.io.vSync
-   visible := timing.io.visible
-   xPos := timing.io.pixelX
-   yPos := timing.io.pixelY
+  val pll = Module(new PLLBlackBox)
+  pll.io.clock := clock
+  pll.io.reset := reset
+  val clk25MHz = pll.io.clk25MHz
+  val locked = pll.io.locked
 
-  // Generate RGB signals (example: simple color bars)
-  io.red := Mux(xPos < (640 / 3).U, 15.U, 0.U)
-  io.green := Mux(xPos >= (640 / 3).U && xPos < (2 * 640 / 3).U, 15.U, 0.U)
-  io.blue := Mux(xPos >= (2 * 640 / 3).U, 15.U, 0.U)
+  withClockAndReset(clk25MHz, !locked) {
+    val timing = Module(new VGATiming)
+    io.hsync := timing.io.hSync
+    io.vsync := timing.io.vSync
+    visible := timing.io.visible
+    xPos := timing.io.pixelX
+    yPos := timing.io.pixelY
 
+    // Generate RGB signals (example: simple color bars)
+    io.red := Mux(xPos < (640 / 3).U, 15.U, 0.U)
+    io.green := Mux(xPos >= (640 / 3).U && xPos < (2 * 640 / 3).U, 15.U, 0.U)
+    io.blue := Mux(xPos >= (2 * 640 / 3).U, 15.U, 0.U)
+  }
 }
