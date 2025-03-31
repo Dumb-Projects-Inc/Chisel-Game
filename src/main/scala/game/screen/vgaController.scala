@@ -23,42 +23,20 @@ class VGAInterface(i2cEn: Boolean = false ) extends Bundle {
 class VGAController(i2cEn: Boolean = false ) extends Module {
   val io = IO(new VGAInterface(i2cEn))
 
-  // VGA timing parameters for 640x480 @ 60Hz
-  val hVisible = 640
-  val hFrontPorch = 16
-  val hSyncPulse = 96
-  val hBackPorch = 48
-  val hTotal = hVisible + hFrontPorch + hSyncPulse + hBackPorch
+  val visible = Wire(Bool())
+  val xPos = Wire(UInt(10.W))
+  val yPos = Wire(UInt(10.W))
 
-  val vVisible = 480
-  val vFrontPorch = 10
-  val vSyncPulse = 2
-  val vBackPorch = 33
-  val vTotal = vVisible + vFrontPorch + vSyncPulse + vBackPorch
-
-  // Horizontal and vertical counters
-  val hCounter = RegInit(0.U(log2Ceil(hTotal).W))
-  val vCounter = RegInit(0.U(log2Ceil(vTotal).W))
-
-  // Horizontal counter logic
-  when(hCounter === (hTotal - 1).U) {
-    hCounter := 0.U
-    when(vCounter === (vTotal - 1).U) {
-      vCounter := 0.U
-    }.otherwise {
-      vCounter := vCounter + 1.U
-    }
-  }.otherwise {
-    hCounter := hCounter + 1.U
-  }
-
-  // Generate sync signals
-  io.hsync := !(hCounter >= (hVisible + hFrontPorch).U && hCounter < (hVisible + hFrontPorch + hSyncPulse).U)
-  io.vsync := !(vCounter >= (vVisible + vFrontPorch).U && vCounter < (vVisible + vFrontPorch + vSyncPulse).U)
+  val timing = Module(new VGATiming)
+  io.hsync := timing.io.hSync
+  io.vsync := timing.io.vSync
+   visible := timing.io.visible
+   xPos := timing.io.pixelX
+   yPos := timing.io.pixelY
 
   // Generate RGB signals (example: simple color bars)
-  io.red := Mux(hCounter < (hVisible / 3).U, 15.U, 0.U)
-  io.green := Mux(hCounter >= (hVisible / 3).U && hCounter < (2 * hVisible / 3).U, 15.U, 0.U)
-  io.blue := Mux(hCounter >= (2 * hVisible / 3).U, 15.U, 0.U)
+  io.red := Mux(xPos < (640 / 3).U, 15.U, 0.U)
+  io.green := Mux(xPos >= (640 / 3).U && xPos < (2 * 640 / 3).U, 15.U, 0.U)
+  io.blue := Mux(xPos >= (2 * 640 / 3).U, 15.U, 0.U)
 
 }
