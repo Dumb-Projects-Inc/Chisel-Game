@@ -1,18 +1,22 @@
+ThisBuild / scalaVersion     := "2.13.16"
+ThisBuild / version          := "0.1.0"
+ThisBuild / organization     := "None"
 
-scalacOptions ++= Seq(
-  "-deprecation",
-  "-feature",
-  "-unchecked",
-  // "-Xfatal-warnings",
-  "-language:reflectiveCalls",
-)
-
-scalaVersion := "2.13.16"
 val chiselVersion = "6.7.0"
-addCompilerPlugin("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full)
 
-
-libraryDependencies += "org.chipsalliance" %% "chisel" % chiselVersion
-libraryDependencies += "org.scalactic" %% "scalactic" % "3.2.19"
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % "test"
-
+lazy val root = (project in file("."))
+  .settings(
+    name := "Chisel-Game",
+    libraryDependencies ++= Seq(
+      "org.chipsalliance" %% "chisel" % chiselVersion,
+      "org.scalatest" %% "scalatest" % "3.2.16" % "test",
+    ),
+    scalacOptions ++= Seq(
+      "-language:reflectiveCalls",
+      "-deprecation",
+      "-feature",
+      "-Xcheckinit",
+      "-Ymacro-annotations",
+    ),
+    addCompilerPlugin("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full),
+  )
