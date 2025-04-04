@@ -8,8 +8,8 @@ class VGATiming extends Module() {
         val hSync = Output(Bool())
         val vSync = Output(Bool())
         val visible = Output(Bool())
-        val pixelX = Output(UInt(10.W))
-        val pixelY = Output(UInt(10.W))
+        val pixelX = Output(UInt(log2Ceil(1024).W))
+        val pixelY = Output(UInt(log2Ceil(1024).W))
     })
 
     val hSync = WireInit(false.B)
