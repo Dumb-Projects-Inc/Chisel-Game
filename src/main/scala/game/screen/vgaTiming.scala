@@ -3,41 +3,64 @@ package gameEngine.screen
 import chisel3._
 import chisel3.util._
 
-class VGATiming extends Module() {
-    val io = IO(new Bundle {
-        val hSync = Output(Bool())
-        val vSync = Output(Bool())
-        val visible = Output(Bool())
-        val pixelX = Output(UInt(log2Ceil(1024).W))
-        val pixelY = Output(UInt(log2Ceil(1024).W))
-    })
+case class VgaConfig(
+    visibleAreaH: Int,
+    visibleAreaV: Int,
+    frontPorchH: Int,
+    frontPorchV: Int,
+    syncPulseH: Int,
+    syncPulseV: Int,
+    backPorchH: Int,
+    backPorchV: Int
+)
 
-    val hSync = WireInit(false.B)
-    val vSync = WireInit(false.B)
-    val visible = WireInit(false.B)
+object VgaConfigs {
+  val vga640x480 = VgaConfig(
+    visibleAreaH = 640,
+    visibleAreaV = 480,
+    frontPorchH = 16,
+    frontPorchV = 10,
+    syncPulseH = 96,
+    syncPulseV = 2,
+    backPorchH = 48,
+    backPorchV = 33
+  )
+  val vga1280x1024 = VgaConfig(
+    visibleAreaH = 1280,
+    visibleAreaV = 1024,
+    frontPorchH = 48,
+    frontPorchV = 1,
+    syncPulseH = 112,
+    syncPulseV = 3,
+    backPorchH = 248,
+    backPorchV = 38
+  )
+}
 
-    //TODO: Find a way to import settings from VGAController
-    // VGA timing parameters for 640x480 @ 60Hz
-    val hVisible = 640
-    val hFrontPorch = 16
-    val hSyncPulse = 96
-    val hBackPorch = 48
-    val hTotal = hVisible + hFrontPorch + hSyncPulse + hBackPorch
+class VGATiming(
+    config: VgaConfig = VgaConfigs.vga640x480
+) extends Module() {
+  import config._
+  val io = IO(new Bundle {
+    val hSync, vSync, visible = Output(Bool())
+    val pixelX, pixelY =
+      Output(UInt(log2Ceil(math.max(visibleAreaH, visibleAreaV)).W))
+  })
 
-    val vVisible = 480
-    val vFrontPorch = 10
-    val vSyncPulse = 2
-    val vBackPorch = 33
-    val vTotal = vVisible + vFrontPorch + vSyncPulse + vBackPorch
+  val totalH = frontPorchH + visibleAreaH + syncPulseH + backPorchH - 1
+  val startHSync = frontPorchH + visibleAreaH - 1
+  val endHSync = startHSync + syncPulseH - 1
 
-  // Horizontal and vertical counters
-  val hCounter = RegInit(0.U(log2Ceil(hTotal).W))
-  val vCounter = RegInit(0.U(log2Ceil(vTotal).W))
+  val totalV = frontPorchV + visibleAreaV + syncPulseV + backPorchV - 1
+  val startVSync = frontPorchV + visibleAreaV - 1
+  val endVSync = startVSync + syncPulseV - 1
 
-  // Horizontal counter logic
-  when(hCounter === (hTotal - 1).U) {
+  val hCounter = RegInit(0.U(log2Ceil(totalH).W))
+  val vCounter = RegInit(0.U(log2Ceil(totalV).W))
+
+  when(hCounter === (totalH).U) {
     hCounter := 0.U
-    when(vCounter === (vTotal - 1).U) {
+    when(vCounter === (totalV).U) {
       vCounter := 0.U
     }.otherwise {
       vCounter := vCounter + 1.U
@@ -46,15 +69,17 @@ class VGATiming extends Module() {
     hCounter := hCounter + 1.U
   }
 
-    // Generate sync signals
-    hSync := !(hCounter >= (hVisible + hFrontPorch).U && hCounter < (hVisible + hFrontPorch + hSyncPulse).U)
-    vSync := !(vCounter >= (vVisible + vFrontPorch).U && vCounter < (vVisible + vFrontPorch + vSyncPulse).U)
+  val hSync = Wire(Bool())
+  val vSync = Wire(Bool())
+  val visible = Wire(Bool())
+  hSync := (hCounter >= startHSync.U) && (hCounter <= endHSync.U)
+  vSync := (vCounter >= startVSync.U) && (vCounter <= endVSync.U)
+  visible := (hCounter < visibleAreaH.U) && (vCounter < visibleAreaV.U)
 
-    visible := (hCounter < hVisible.U) && (vCounter < vVisible.U)
+  io.hSync := hSync
+  io.vSync := vSync
+  io.visible := visible
+  io.pixelX := hCounter
+  io.pixelY := vCounter
 
-    io.hSync := hSync
-    io.vSync := vSync
-    io.visible := visible
-    io.pixelX := hCounter
-    io.pixelY := vCounter    
 }
