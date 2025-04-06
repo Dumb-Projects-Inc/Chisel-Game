@@ -3,6 +3,9 @@ package gameEngine.screen
 import chisel3._
 import chisel3.util._
 
+/** Case class that stores the configuration parameters for VGA timing. Source:
+  * https://martin.hinner.info/vga/timing.html
+  */
 case class VgaConfig(
     visibleAreaH: Int,
     visibleAreaV: Int,
@@ -37,6 +40,23 @@ object VgaConfigs {
   )
 }
 
+/** Chisel module that generates VGA timing signals.
+  *
+  * Important: This module assumes a clock rate corresponding with the
+  * corresponding pixel clock for configuration given. For example, the default
+  * value of vga640x480 expects this module to be run at 25.175Mhz
+  *
+  * The purpose of this module is to generate the necessary hSync and vSync
+  * signal, to be plugged directly to the vga port. It also outputs a x,y
+  * coordinate pair, which indicate which position the vga port is currently
+  * reading on its r,g,b inputs. A "visible" output is provided for convinience,
+  * indicating if the current x,y coordinate pair is on the screen. The pixelX,
+  * pixelY and visible outputs should be used by an outside circuit to drive the
+  * r,g,b pins of the vga screen.
+  *
+  * @param config
+  *   VGA configuration parameters; defaults to the 640x480 configuration.
+  */
 class VGATiming(
     config: VgaConfig = VgaConfigs.vga640x480
 ) extends Module() {
