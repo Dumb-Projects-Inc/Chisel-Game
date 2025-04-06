@@ -15,25 +15,30 @@ class Engine extends Module {
   val rdAddr = WireInit(0.U(log2Ceil(1024).W))
 
 
-  val framebuffer = Module(new FrameBuffer)
-  framebuffer.io.wrEn := false.B
-  framebuffer.io.wrData := 0.U
-  framebuffer.io.address := rdAddr
-  framebuffer.io.switch := false.B
-  val pixelReg = framebuffer.io.data
+  val linebuffer = Module(new LineBuffer)
+  linebuffer.io.wrAddr := 0.U
+  linebuffer.io.wrData := DontCare
+  linebuffer.io.address := rdAddr
+  linebuffer.io.switch := false.B
+  val pixelReg = linebuffer.io.data
 
   //Init framebuffer with a pattern
   //in a state machine
 
   val init = RegInit(0.U(32.W))
-  when(init < 640.U) {
-    framebuffer.io.wrEn := true.B
-    framebuffer.io.wrData := init(11,0)
-    framebuffer.io.address := init(11,0)
-    init := init + 1.U
-  }.otherwise {
-    framebuffer.io.wrEn := false.B
-    framebuffer.io.address := rdAddr
+  val doneRender = RegInit(false.B)
+  when(!doneRender) {
+    when(init < 640.U) {
+      linebuffer.io.wrAddr := init(11,0)
+      linebuffer.io.wrData := init(11,0)
+      init := init + 1.U
+    }.otherwise {
+      linebuffer.io.wrAddr := 0.U
+      linebuffer.io.switch := true.B
+      doneRender := true.B
+    }
+  }. otherwise {
+    linebuffer.io.switch := false.B
   }
 
 
