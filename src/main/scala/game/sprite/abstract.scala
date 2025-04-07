@@ -16,7 +16,7 @@ import chisel3.util.log2Ceil
 abstract class Sprite(val width: Int, val height: Int) extends Module {
   val io = IO(new Bundle {
     val x = Input(UInt(log2Ceil(width).W))
-    val y = Input(UInt(log2Ceil(width).W))
+    val y = Input(UInt(log2Ceil(height).W))
     val r, g, b = Output(UInt(4.W))
     val transparent = Output(Bool())
   })
@@ -35,7 +35,7 @@ class ImageSprite(filepath: String, width: Int, height: Int)
     pixelData(row * width + col).U(12.W)
   }
 
-  val rgb = rom(io.x)(io.y)
+  val rgb = rom(io.y)(io.x)
   io.r := rgb(11, 8)
   io.g := rgb(7, 4)
   io.b := rgb(3, 0)
