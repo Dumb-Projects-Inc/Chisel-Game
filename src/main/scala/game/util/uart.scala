@@ -8,6 +8,6 @@ class UARTInterface extends Bundle {
 }
 
 class UART extends Module {
-    val io = IO(new UARTInterface)
+  val io = IO(new UARTInterface)
 
 }
