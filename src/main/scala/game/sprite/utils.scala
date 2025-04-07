@@ -25,23 +25,3 @@ object SpriteImageUtil {
     (pixels, width, height)
   }
 }
-
-object Test extends App {
-  if (args.length < 1) {
-    println("Usage: SpriteImageUtilTest <path_to_png>")
-    sys.exit(1)
-  }
-  val filepath = args(0)
-  try {
-    val (pixels, width, height) = SpriteImageUtil.loadPngData(filepath)
-    println(s"Image loaded: width = $width, height = $height")
-
-    println("Pixel values:")
-    pixels.foreach { pixel =>
-      println(f"0x${pixel}%03X")
-    }
-  } catch {
-    case e: Exception =>
-      println(s"Error loading image: ${e.getMessage}")
-  }
-}
