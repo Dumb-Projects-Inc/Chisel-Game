@@ -1,7 +1,9 @@
+package gameEngine.sprite
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import gameEngine.sprite._
+import chisel3._
+import chisel3.simulator.EphemeralSimulator._
 
 class SpriteImageUtilSpec extends AnyFlatSpec with Matchers {
 
@@ -27,5 +29,35 @@ class SpriteImageUtilSpec extends AnyFlatSpec with Matchers {
     )
 
     pixels shouldEqual expectedPixels
+  }
+}
+
+class ImageSpriteSpec extends AnyFlatSpec {
+  behavior of "ImageSprite"
+  it should "output correct colors and transparency for each pixel" in {
+    val filepath = "src/test/resources/test_sprite.png"
+    simulate(new ImageSprite(filepath, 3, 3)) { dut =>
+      val expectedPixels = Seq(
+        (0, 0, (15, 0, 0), false), // F00
+        (1, 0, (3, 15, 0), false), // 3F0
+        (2, 0, (0, 4, 15), false), // 04F
+        (0, 1, (15, 15, 15), false), // FFF
+        (1, 1, (15, 15, 15), false), // FFF
+        (2, 1, (15, 15, 15), false), // FFF
+        (0, 2, (0, 0, 0), true), // 000 => transparent
+        (1, 2, (0, 0, 0), true), // 000 => transparent
+        (2, 2, (0, 0, 0), true) // 000 => transparent
+      )
+
+      for ((x, y, (expR, expG, expB), expTransp) <- expectedPixels) {
+        dut.io.x.poke(x.U)
+        dut.io.y.poke(y.U)
+        dut.clock.step()
+        dut.io.r.expect(expR.U)
+        dut.io.g.expect(expG.U)
+        dut.io.b.expect(expB.U)
+        dut.io.transparent.expect(expTransp.B)
+      }
+    }
   }
 }
