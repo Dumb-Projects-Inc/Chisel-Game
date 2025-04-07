@@ -1,0 +1,22 @@
+name: flake-check
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "**/*.nix"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "**/*.nix"
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check Flake
+        run: nix flake check

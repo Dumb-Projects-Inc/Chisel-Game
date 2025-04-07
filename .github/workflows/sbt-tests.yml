@@ -1,18 +1,22 @@
-name: "Test"
+name: sbt-tests
 on:
-  pull_request:
   push:
+    branches:
+      - master
+    paths:
+      - '**/*.scala'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '**/*.scala'
 jobs:
-  tests:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check Flake
-        run: nix flake check
-
       - name: Run sbt tests
         run: nix develop . --command sbt test
