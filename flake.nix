@@ -28,7 +28,7 @@
 
     devShells = forEachSupportedSystem ({pkgs}: {
       default = pkgs.mkShell {
-        packages = with pkgs; [sbt coursier gtkwave verilator python3 python3Packages.pillow python3Packages.scipy];
+        packages = with pkgs; [sbt coursier gtkwave verilator];
       };
     });
   };
