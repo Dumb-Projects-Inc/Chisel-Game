@@ -22,7 +22,8 @@ class VGAInterface(i2cEn: Boolean = false) extends Bundle {
 class VGAController(i2cEn: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val pixel = Input(UInt(12.W))
-    val rdAddr = Output(UInt(log2Ceil(1024).W))
+    val x = Output(UInt(log2Ceil(1024).W))
+    val y = Output(UInt(log2Ceil(1024).W))
     val vga = new VGAInterface(i2cEn)
   })
 
@@ -51,8 +52,7 @@ class VGAController(i2cEn: Boolean = false) extends Module {
     io.vga.green := Mux(visible, pixel(7, 4), 0.U(4.W))
     io.vga.blue := Mux(visible, pixel(3, 0), 0.U(4.W))
 
-    val rdAddr = Wire(UInt(16.W))
-    rdAddr := xPos // Concatenate yPos and xPos to form the address
-    io.rdAddr := rdAddr
+    io.x := xPos
+    io.y := yPos
   }
 }
