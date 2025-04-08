@@ -1,4 +1,4 @@
-package gameEngine.screen
+package gameEngine.renderer
 
 import chisel3._
 import chisel3.util._
