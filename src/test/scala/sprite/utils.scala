@@ -17,15 +17,15 @@ class SpriteImageUtilSpec extends AnyFlatSpec with Matchers {
 
     // expected pixel values starting with the top column left to right
     val expectedPixels = Seq(
-      BigInt("F00", 16),
-      BigInt("3F0", 16),
-      BigInt("04F", 16),
-      BigInt("FFF", 16),
-      BigInt("FFF", 16),
-      BigInt("FFF", 16),
-      BigInt("000", 16),
-      BigInt("000", 16),
-      BigInt("000", 16)
+      BigInt("0111100000000", 2),
+      BigInt("0000011110000", 2),
+      BigInt("0000000001111", 2),
+      BigInt("0000000000000", 2),
+      BigInt("0111111111111", 2),
+      BigInt("0000000000000", 2),
+      BigInt("1000000000000", 2),
+      BigInt("1000000000000", 2),
+      BigInt("1000000000000", 2)
     )
 
     pixels shouldEqual expectedPixels
@@ -39,11 +39,11 @@ class ImageSpriteSpec extends AnyFlatSpec {
     simulate(new ImageSprite(filepath, 3, 3)) { dut =>
       val expectedPixels = Seq(
         (0, 0, (15, 0, 0), false), // F00
-        (1, 0, (3, 15, 0), false), // 3F0
-        (2, 0, (0, 4, 15), false), // 04F
-        (0, 1, (15, 15, 15), false), // FFF
+        (1, 0, (0, 15, 0), false), // 3F0
+        (2, 0, (0, 0, 15), false), // 04F
+        (0, 1, (0, 0, 0), false), // FFF
         (1, 1, (15, 15, 15), false), // FFF
-        (2, 1, (15, 15, 15), false), // FFF
+        (2, 1, (0, 0, 0), false), // FFF
         (0, 2, (0, 0, 0), true), // 000 => transparent
         (1, 2, (0, 0, 0), true), // 000 => transparent
         (2, 2, (0, 0, 0), true) // 000 => transparent

@@ -32,12 +32,12 @@ class ImageSprite(filepath: String, width: Int, height: Int)
   )
 
   val rom = VecInit.tabulate(height, width) { (row, col) =>
-    pixelData(row * width + col).U(12.W)
+    pixelData(row * width + col).U(13.W)
   }
 
   val rgb = rom(io.y)(io.x)
   io.r := rgb(11, 8)
   io.g := rgb(7, 4)
   io.b := rgb(3, 0)
-  io.transparent := rgb === 0.U
+  io.transparent := rgb(12)
 }
