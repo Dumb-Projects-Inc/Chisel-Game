@@ -16,4 +16,6 @@ To create this in Vivado to the following:
 - Press OK
 
 
-When creating the project ensure the top module is `top/TopModule.sv` as this connects the PLL to the circuit
+## Architecture
+
+For information about rendering see [rendering.md](rendering.md)
