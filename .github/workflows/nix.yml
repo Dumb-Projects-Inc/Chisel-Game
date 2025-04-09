@@ -19,15 +19,5 @@ jobs:
         name: Checkout
       - uses: nixbuild/nix-quick-install-action@v30
         name: Install Nix
-      - uses: nix-community/cache-nix-action@v6
-        name: Cache Nix Store
-        with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
-          gc-max-store-size-linux: 3G
-          purge: true
-          purge-prefixes: nix-${{ runner.os }}-
-          purge-created: 0
-          purge-primary-key: never
       - name: Check Flake
         run: nix flake check
