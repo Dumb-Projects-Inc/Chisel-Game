@@ -1,12 +1,16 @@
 name: "Setup SBT Environment"
 description: "Common steps for checkout, Nix installation, and caching SBT dependencies"
+inputs:
+  github_token:
+    required: true
+    description: "Github token"
 runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v31
       with:
-        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+        github_access_token: ${{ inputs.github_token }}
     - uses: nix-community/cache-nix-action@v6
       with:
         primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}

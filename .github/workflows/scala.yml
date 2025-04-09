@@ -18,6 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-sbt
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run sbt tests
         run: nix develop . --command sbt test
       - name: Upload dep graph
