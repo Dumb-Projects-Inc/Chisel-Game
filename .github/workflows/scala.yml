@@ -16,7 +16,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: ./.github/actions/setup-sbt/
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-sbt
       - name: Run sbt tests
         run: nix develop . --command sbt test
       - name: Upload dep graph
@@ -25,6 +26,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: ./.github/actions/setup-sbt/
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-sbt
       - name: Run scalafmt lint
         run: nix develop . --command sbt "scalafmtCheckAll"
