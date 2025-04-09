@@ -1,4 +1,8 @@
-name: sbt-tests
+name: Scala
+
+permissions:
+  actions: write
+
 on:
   workflow_dispatch:
   push:
