@@ -45,4 +45,4 @@ jobs:
           purge-created: 0
           purge-primary-key: never
       - name: Run sbt tests
-        run: nix develop . --command sbt scalaFmtCheckAll
+        run: nix develop . --command sbt scalafmtCheckAll
