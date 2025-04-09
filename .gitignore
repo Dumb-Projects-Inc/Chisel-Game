@@ -9,7 +9,6 @@
 .bsp
 .devcontainer
 .bloop
-project
 target
 MyModule.sv
 

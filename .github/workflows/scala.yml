@@ -1,0 +1,29 @@
+name: sbt-tests
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "**/*.scala"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "**/*.scala"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup-sbt/
+      - name: Run sbt tests
+        run: nix develop . --command sbt test
+      - name: Upload dep graph
+        run: nix develop . --command sbt --batch githubSubmitSnapshot
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup-sbt/
+      - name: Run scalafmt lint
+        run: nix develop . --command sbt "scalafmtCheckAll"
