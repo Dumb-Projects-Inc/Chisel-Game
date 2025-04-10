@@ -99,7 +99,7 @@ class VGATiming(
   io.hSync := hSync
   io.vSync := vSync
   io.visible := visible
-  io.pixelX := hCounter
-  io.pixelY := vCounter
+  io.pixelX := Mux(visible, hCounter, 0.U)
+  io.pixelY := Mux(visible, vCounter, 0.U)
 
 }
