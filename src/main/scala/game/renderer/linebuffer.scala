@@ -22,10 +22,12 @@ class LineBuffer(size: Int = 640) extends Module {
   writeEn := io.wrAddr =/= 0.U
 
   // Switch buffer on switch signal, usually by line end
-  when(io.switch) {
+  val prevReg = RegNext(io.switch)
+  val risingEdge = io.switch && !prevReg
+  when(risingEdge) {
     bufferSel := ~bufferSel
   }
-
+  
   when(writeEn) {
     when(bufferSel) {
       linebuf1.write(io.wrAddr, io.wrData)
