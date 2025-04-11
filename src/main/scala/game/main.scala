@@ -22,7 +22,7 @@ class Engine extends Module {
   val pixelReg = linebuffer.io.data
 
   // Init framebuffer with a pattern
-  // in a state machine
+  // in a state machine -
 
   val init = RegInit(0.U(32.W))
   val doneRender = RegInit(false.B)
