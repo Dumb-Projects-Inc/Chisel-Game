@@ -1,6 +1,6 @@
+[![Coverage Status](https://coveralls.io/repos/github/Dumb-Projects-Inc/Chisel-Game/badge.svg?branch=master)](https://coveralls.io/github/Dumb-Projects-Inc/Chisel-Game?branch=master)
 # Chisel Game engine
 for Doomlike games
-[![Coverage Status](https://coveralls.io/repos/github/Dumb-Projects-Inc/Chisel-Game/badge.svg?branch=master)](https://coveralls.io/github/Dumb-Projects-Inc/Chisel-Game?branch=master)
 
 
 ## Getting started
