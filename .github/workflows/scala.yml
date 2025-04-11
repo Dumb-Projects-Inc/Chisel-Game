@@ -68,19 +68,3 @@ jobs:
             ${{ runner.os }}-sbt-
       - name: Run sbt tests
         run: nix develop . --command sbt test
-
-  dependency-graph:
-    name: Update Dependency Graph
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-    - uses: actions/checkout@v4
-    - name: Setup JDK
-      uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: 17
-        cache: sbt
-    - uses: sbt/setup-sbt@v1
-    - name: Upload dependency graph
-      uses: scalacenter/sbt-dependency-submission@v2
