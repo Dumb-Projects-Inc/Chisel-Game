@@ -2,7 +2,7 @@ name: Scala
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 on:
   workflow_dispatch:
