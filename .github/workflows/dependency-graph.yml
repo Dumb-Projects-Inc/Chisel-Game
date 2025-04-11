@@ -1,4 +1,8 @@
 name: Update Dependency Graph
+
+permissions:
+      contents: write
+
 on:
   workflow_dispatch:
   push:
