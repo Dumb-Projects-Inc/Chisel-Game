@@ -67,9 +67,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-sbt-
       - name: Run sbt tests
-        run: nix develop . --command sbt test
-      - run: nix develop . --command sbt clean coverage test
-      - run: nix develop . --command sbt coverageReport
+        run: nix develop . --command sbt clean coverage test coverageReport
       - name: Coveralls GitHub Action
         uses: coverallsapp/github-action@v2
         with:
