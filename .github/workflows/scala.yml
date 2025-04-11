@@ -75,11 +75,12 @@ jobs:
     needs: test
     steps:
     - uses: actions/checkout@v4
-    - name: Set up JDK
+    - name: Setup JDK
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: 'sbt'
+        distribution: temurin
+        java-version: 17
+        cache: sbt
+    - uses: sbt/setup-sbt@v1
     - name: Upload dependency graph
-      uses: scalacenter/sbt-dependency-submission@ab086b50c947c9774b70f39fc7f6e20ca2706c91
+      uses: scalacenter/sbt-dependency-submission@v2
