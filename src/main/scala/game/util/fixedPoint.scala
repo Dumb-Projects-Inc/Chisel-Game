@@ -5,12 +5,12 @@ import chisel3.util._
 import chisel3.SIntFactory
 
 object FixedPointUtils {
-  def toFix(value: Double, width: Int, frac: Int): SInt = {
+  def toFixed(value: Double, width: Int, frac: Int): SInt = {
     val raw = BigInt(math.round(value * (1 << frac)))
     raw.S(width.W)
   }
 
-  def fixMul(a: SInt, b: SInt, width: Int, frac: Int): SInt = {
+  def mul(a: SInt, b: SInt, width: Int, frac: Int): SInt = {
     val prod = a * b
     val shifted = prod >> frac
     shifted.asTypeOf(SInt(width.W))
