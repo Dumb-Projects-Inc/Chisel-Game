@@ -5,46 +5,50 @@ import chisel3.util.log2Ceil
 import chisel3.stage.ChiselGeneratorAnnotation
 import circt.stage.{ChiselStage, FirtoolOption}
 
-import gameEngine.screen._
+import gameEngine.util._
 
-class Engine extends Module {
-  val io = IO(new Bundle {
-    val vga = new VGAInterface
-  })
+class Vec2(precision: Int = 10) extends Bundle {
+  val x = UInt(precision.W)
+  val y = UInt(precision.W)
+}
 
-  val rdAddr = WireInit(0.U(log2Ceil(1024).W))
+class FixedPointDecimal(val totalBits: Int, val fracBits: Int) extends Bundle {
+  val raw = SInt(totalBits.W)
 
-  val linebuffer = Module(new LineBuffer)
-  linebuffer.io.wrAddr := 0.U
-  linebuffer.io.wrData := DontCare
-  linebuffer.io.address := rdAddr
-  linebuffer.io.switch := false.B
-  val pixelReg = linebuffer.io.data
-
-  // Init framebuffer with a pattern
-  // in a state machine
-
-  val init = RegInit(0.U(32.W))
-  val doneRender = RegInit(false.B)
-  when(!doneRender) {
-    when(init < 640.U) {
-      linebuffer.io.wrAddr := init(11, 0)
-      linebuffer.io.wrData := init(11, 0)
-      init := init + 1.U
-    }.otherwise {
-      linebuffer.io.wrAddr := 0.U
-      linebuffer.io.switch := true.B
-      doneRender := true.B
-    }
-  }.otherwise {
-    linebuffer.io.switch := false.B
+  def +(that: FixedPointDecimal): FixedPointDecimal = {
+    require(totalBits == that.totalBits && fracBits == that.fracBits)
+    val sum = Wire(new FixedPointDecimal(totalBits, fracBits))
+    sum.raw := this.raw + that.raw
+    sum
   }
 
-  val controller = Module(new VGAController)
+  def -(that: FixedPointDecimal): FixedPointDecimal = {
+    require(totalBits == that.totalBits && fracBits == that.fracBits)
+    val diff = Wire(new FixedPointDecimal(totalBits, fracBits))
+    diff.raw := this.raw - that.raw
+    diff
+  }
 
-  rdAddr := controller.io.rdAddr
-  controller.io.pixel := pixelReg
-  io.vga := controller.io.vga
+  def *(that: FixedPointDecimal): FixedPointDecimal = {
+    require(totalBits == that.totalBits && fracBits == that.fracBits)
+    val prod = Wire(new FixedPointDecimal(totalBits, fracBits))
+    val extended = (this.raw.asSInt * that.raw.asSInt).asSInt
+    prod.raw := (extended >> fracBits).asSInt
+    prod
+  }
+}
+
+class UartEngine(clkSpeed: Int) extends Module {
+  val io = IO(new Bundle {
+    val tx = Output(Bool())
+    val x = Input(new FixedPointDecimal(4, 2))
+    val y = Input(new FixedPointDecimal(4, 2))
+  })
+
+  val uart = Module(new BufferedTx(clkSpeed, 115200))
+  io.tx := uart.io.txd
+
+  val prod = io.x * io.y
 
 }
 
@@ -60,7 +64,7 @@ object gameEngineMain {
         "--split-verilog"
       ),
       Seq(
-        ChiselGeneratorAnnotation(() => new Engine()),
+        ChiselGeneratorAnnotation(() => new UartEngine(100000000)),
         FirtoolOption("--disable-all-randomization")
       )
     )
