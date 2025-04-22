@@ -3,35 +3,34 @@ package gameEngine.fixed
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chisel3.simulator.EphemeralSimulator._
+import gameEngine.fixed.FixedPointUtils._
 
-class FixedPointALU(w: Int = 32, f: Int = 16) extends Module {
+class FixedPointALU extends Module {
   val io = IO(new Bundle {
-    val x, y = Input(SInt(w.W))
-    val sum, diff, prod = Output(SInt(w.W))
+    val x, y = Input(SInt(width.W))
+    val sum = Output(SInt(width.W))
+    val diff = Output(SInt(width.W))
+    val prod = Output(SInt(width.W))
   })
+
   io.sum := io.x + io.y
   io.diff := io.x - io.y
-  io.prod := FixedPointUtils.mul(io.x, io.y, w, f)
+  io.prod := io.x.fpMul(io.y)
 }
 
-class FixedPointSpec extends AnyFlatSpec {
-  val w = 16
-  val f = 8
+class FixedPointALUSpec extends AnyFlatSpec {
+  behavior of "FixedPointALU"
 
-  /** Converts a Double into its fixed-point raw integer form. It scales the
-    * floating-point value by 2^f (where f is the number of fractional bits),
-    * rounds to the nearest integer, and wraps it as a BigInt. This raw integer
-    * can then be poked directly into an SInt(w.W) to represent the fixed-point
-    * value.
-    */
+  private val w = width // 32
+  private val f = frac // 16
+
+  // Helper to convert a Double to raw fixed-point bits
   private def toRaw(d: Double): BigInt = BigInt(math.round(d * (1 << f)))
 
   private def withDut(testBody: FixedPointALU => Unit): Unit =
-    simulate(new FixedPointALU(w, f)) { dut => testBody(dut) }
+    simulate(new FixedPointALU) { dut => testBody(dut) }
 
-  behavior of "FixedPointALU"
-
-  it should "handle fixed‑point addition" in {
+  it should "handle fixed-point addition" in {
     val cases = Seq(
       ((2.0, 4.0), 6.0),
       ((1.2, 2.8), 4.0),
@@ -68,8 +67,8 @@ class FixedPointSpec extends AnyFlatSpec {
         dut.io.diff.expect(toRaw(diff))
       }
     }
-
   }
+
   it should "handle fixed-point multiplication" in {
     val cases = Seq(
       (2.0, 3.0, 6.0),
@@ -79,6 +78,7 @@ class FixedPointSpec extends AnyFlatSpec {
       (-1.5, -2.0, 3.0),
       (0.5, -0.5, -0.25)
     )
+
     withDut { dut =>
       for ((x, y, prod) <- cases) {
         dut.io.x.poke(toRaw(x))
@@ -88,39 +88,38 @@ class FixedPointSpec extends AnyFlatSpec {
       }
     }
   }
-
 }
 
 class FixedPointUtilsSpec extends AnyFlatSpec {
-  behavior of "FixedPointUtils.toFix"
+  behavior of "FixedPointUtils.toFP"
 
-  it should "convert various positive and negative doubles correctly" in {
+  "toFP" should "convert various doubles correctly" in {
     val cases = Seq(
-      (1.0, 16, 8, BigInt(0x100)), // 1.0 in Q8.8 should be represented as 0x100
-      (1.5, 16, 8, BigInt(0x180)),
-      (-1.5, 16, 8, BigInt(-0x180)),
-      (2.345, 16, 8, BigInt(0x258)), // 0x258 = 2.34375 in Q8.8, slight loss
-      (0.0, 16, 8, BigInt(0))
+      (1.0, BigInt(1 << frac)),
+      (1.5, BigInt((1.5 * (1 << frac)).round)),
+      (-1.5, BigInt((-1.5 * (1 << frac)).round)),
+      (2.345, BigInt((2.345 * (1 << frac)).round)),
+      (0.0, BigInt(0))
     )
-    for ((value, w, f, expected) <- cases) {
-      val lit = FixedPointUtils.toFixed(value, w, f)
+    for ((value, expected) <- cases) {
+      val lit = toFP(value)
       assert(
         lit.litValue == expected,
-        s"toFix($value, $w, $f).litValue = ${lit.litValue}, expected $expected"
+        s"toFP($value).litValue = ${lit.litValue}, expected $expected"
       )
     }
   }
 
   it should "round to nearest integer when scaling" in {
-    // 1.004 * 256 = 257.024, should round to 257
-    val lit = FixedPointUtils.toFixed(1.004, 16, 8)
-    assert(lit.litValue == BigInt(257))
+    // 1.004 * 65536 = 65701.344 -> 65701
+    val lit = toFP(1.004)
+    assert(lit.litValue == BigInt(math.round(1.004 * (1 << frac))))
   }
 
-  it should "handle edge fractional values correctly" in {
-    val lit1 = FixedPointUtils.toFixed(0.5, 16, 8) // 0.5*256 = 128
-    val lit2 = FixedPointUtils.toFixed(-0.5, 16, 8) // -128
-    assert(lit1.litValue == BigInt(128))
-    assert(lit2.litValue == BigInt(-128))
+  it should "handle edge fractional values" in {
+    val lit1 = toFP(0.5) // 0.5 * 65536 = 32768
+    val lit2 = toFP(-0.5) // -32768
+    assert(lit1.litValue == BigInt(32768))
+    assert(lit2.litValue == BigInt(-32768))
   }
 }
