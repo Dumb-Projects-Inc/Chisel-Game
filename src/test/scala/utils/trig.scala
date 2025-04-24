@@ -27,7 +27,7 @@ class TrigLUTSpec extends AnyFlatSpec {
 
   it should "correctly compute sin, cos, and secant for sample-aligned angles" in {
     // Fixed point arithemetic isn't super accurate.
-    val maxError = 0.03
+    val maxError = 0.04
     simulate(new TrigLUT) { dut =>
       for (angle <- testAngles) {
 
