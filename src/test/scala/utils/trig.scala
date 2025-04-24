@@ -62,9 +62,7 @@ class TrigLUTSpec extends AnyFlatSpec {
         dut.io.angle.poke(rawAngle)
         dut.clock.step()
 
-        Console.err.println(math.cos(angle))
         val expSec = 1.0 / math.cos(angle)
-        Console.err.println(expSec)
         val rawSec = toFP(expSec)
         val gotSec = dut.io.sec.peek()
         assert(
