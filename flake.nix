@@ -3,6 +3,15 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+  nixConfig = {
+    extra-substituters = [
+      "https://circt1620.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "circt1620.cachix.org-1:/1sHl+1qjimZwMDWv+3DV+kKzGqEkPLmctaBQSdV8a0="
+    ];
+  };
+
   outputs = {
     self,
     nixpkgs,
@@ -40,6 +49,10 @@
 
         CHISEL_FIRTOOL_PATH = "${pkgs.circt}/bin";
       };
+    });
+
+    packages = forEachSupportedSystem ({pkgs}: {
+      circt = pkgs.callPackage ./circt/package.nix {};
     });
   };
 }
