@@ -12,7 +12,7 @@ object TrigLUT {
   private val samplesU = samples.U
   private val mirrorIdxYU = (samples - 1).U
 
-  // Quarter-cycle sine table [0..π/2]
+  // Quarter-cycle sine table [0..π/2)
   val sinTable: Vec[SInt] = VecInit.tabulate(samples) { i =>
     val theta = math.Pi / 2 * i.toDouble / samples
     toFP(math.sin(theta))
