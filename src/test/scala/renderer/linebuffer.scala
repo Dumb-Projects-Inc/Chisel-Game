@@ -1,13 +1,13 @@
 package gameEngine.renderer
 
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
 import chisel3._
 import chisel3.simulator.EphemeralSimulator._
 
-class LinebufferSpec extends AnyFlatSpec with Matchers {
+class LinebufferSpec extends AnyFlatSpec {
 
-  "lineBuffer" should "correctly switch on rising edge" in {
+  behavior of "lineBuffer"
+  it should "correctly switch on rising edge" in {
     simulate(new LineBuffer(10)) { dut => 
       // Initial state
       dut.bufferSel.expect(false.B)
