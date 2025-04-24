@@ -19,7 +19,8 @@ class VGAInterface(i2cEn: Boolean = false) extends Bundle {
   val i2c = if (i2cEn) Some(new I2CInterface) else None
 }
 
-class VGAController(i2cEn: Boolean = false, noBlackBox: Boolean = false) extends Module {
+class VGAController(i2cEn: Boolean = false, noBlackBox: Boolean = false)
+    extends Module {
   val io = IO(new Bundle {
     val pixel = Input(UInt(12.W))
     val x = Output(UInt(log2Ceil(1024).W))
@@ -36,9 +37,8 @@ class VGAController(i2cEn: Boolean = false, noBlackBox: Boolean = false) extends
   val clk25MHz = Wire(Clock())
   val locked = Wire(Bool())
 
-  //Enable simulation without IP
-  if(!noBlackBox)
-  {
+  // Enable simulation without IP
+  if (!noBlackBox) {
     val pll = Module(new PLLBlackBox)
     pll.io.clock := clock
     pll.io.reset := reset
@@ -48,7 +48,6 @@ class VGAController(i2cEn: Boolean = false, noBlackBox: Boolean = false) extends
     clk25MHz := clock
     locked := true.B
   }
-  
 
   withClockAndReset(clk25MHz, !locked) {
     val timing = Module(new VGATiming)
