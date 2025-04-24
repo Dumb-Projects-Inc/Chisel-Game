@@ -68,6 +68,10 @@ jobs:
             ${{ runner.os }}-sbt-
       - name: Run sbt tests
         run: nix develop . --command sbt clean coverage test coverageReport
+      - uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   dependency-graph:
     name: Update Dependency Graph
