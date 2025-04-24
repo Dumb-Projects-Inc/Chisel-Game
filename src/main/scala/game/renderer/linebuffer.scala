@@ -31,7 +31,7 @@ class LineBuffer(size: Int = 640, debug: Boolean = false) extends Module {
   when(risingEdge) {
     bufferSel := ~bufferSel
   }
-  
+
   when(writeEn) {
     when(bufferSel) {
       linebuf1.write(io.wrAddr, io.wrData)
