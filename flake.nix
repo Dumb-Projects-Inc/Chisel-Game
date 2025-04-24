@@ -3,6 +3,15 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+  nixConfig = {
+    extra-substituters = [
+      "https://circt1620.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "circt1620.cachix.org-1:/1sHl+1qjimZwMDWv+3DV+kKzGqEkPLmctaBQSdV8a0="
+    ];
+  };
+
   outputs = {
     self,
     nixpkgs,
@@ -15,7 +24,12 @@
         f {
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [self.overlays.default];
+            overlays = [
+              self.overlays.default
+              (final: prev: {
+                circt = prev.callPackage ./circt/package.nix {};
+              })
+            ];
           };
         });
   in {
@@ -30,6 +44,15 @@
       default = pkgs.mkShell {
         packages = with pkgs; [sbt coursier gtkwave verilator];
       };
+      circt-from-source = pkgs.mkShell {
+        packages = with pkgs; [sbt coursier gtkwave verilator circt];
+
+        CHISEL_FIRTOOL_PATH = "${pkgs.circt}/bin";
+      };
+    });
+
+    packages = forEachSupportedSystem ({pkgs}: {
+      circt = pkgs.callPackage ./circt/package.nix {};
     });
   };
 }
