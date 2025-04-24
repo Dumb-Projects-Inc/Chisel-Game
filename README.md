@@ -1,4 +1,4 @@
-[![Coverage Status](https://coveralls.io/repos/github/Dumb-Projects-Inc/Chisel-Game/badge.svg?branch=master)](https://coveralls.io/github/Dumb-Projects-Inc/Chisel-Game?branch=master)
+[![codecov](https://codecov.io/gh/Dumb-Projects-Inc/Chisel-Game/graph/badge.svg?token=YN51U70ZRL)](https://codecov.io/gh/Dumb-Projects-Inc/Chisel-Game)
 # Chisel Game engine
 for Doomlike games
 
