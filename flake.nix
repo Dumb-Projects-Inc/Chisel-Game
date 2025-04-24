@@ -15,7 +15,12 @@
         f {
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [self.overlays.default];
+            overlays = [
+              self.overlays.default
+              (final: prev: {
+                circt = prev.callPackage ./circt/package.nix {};
+              })
+            ];
           };
         });
   in {
@@ -29,6 +34,11 @@
     devShells = forEachSupportedSystem ({pkgs}: {
       default = pkgs.mkShell {
         packages = with pkgs; [sbt coursier gtkwave verilator];
+      };
+      circt-from-source = pkgs.mkShell {
+        packages = with pkgs; [sbt coursier gtkwave verilator circt];
+
+        CHISEL_FIRTOOL_PATH = "${pkgs.circt}/bin";
       };
     });
   };
