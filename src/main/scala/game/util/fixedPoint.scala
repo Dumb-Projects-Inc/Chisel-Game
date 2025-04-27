@@ -26,8 +26,8 @@ object FixedPointUtils {
         that.getWidth == width,
         s"fpMul: right operand width ${that.getWidth} != expected $width"
       )
-      val product = (self * that) >> frac
-      product.asTypeOf(self)
+      (self * that) >> frac
+
     }
 
     def fpFloor: SInt = {
@@ -35,16 +35,27 @@ object FixedPointUtils {
         self.getWidth == width,
         s"fpFloor: operand width ${self.getWidth} != expected $width"
       )
-      self >> frac
+      val mask = (~((BigInt(1) << frac) - 1)).S(width.W)
+      self & mask
+
     }
 
-    def fpFrac: UInt = {
+    def fpCeil: SInt = {
+      require(
+        self.getWidth == width,
+        s"fpCeil: operand width ${self.getWidth} != expected $width"
+      )
+      Mux(self.fpFrac === toFP(0.0), self, self.fpFloor + toFP(1.0))
+    }
+
+    def fpFrac: SInt = {
       require(
         self.getWidth == width,
         s"fpFrac: operand width ${self.getWidth} != expected $width"
       )
-      val mask = (BigInt(1) << frac) - 1
-      (self & mask.S(width.W)).asUInt
+      val mask = ((BigInt(1) << frac) - 1).S(width.W)
+      val absVal = Mux(self >= 0.S, self, -self)
+      absVal & mask
     }
 
     def toDouble: Double =
