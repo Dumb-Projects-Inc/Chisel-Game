@@ -11,8 +11,15 @@ object TrigLUT {
 
   private val samplesU = samples.U
   private val mirrorIdxYU = (samples - 1).U
+}
 
-  // Quarter-cycle sine table [0..π/2)
+class TrigLUT extends Module {
+  val io = IO(new Bundle {
+    val angle = Input(SInt(TrigLUT.width.W)) // Q16.16 input
+    val sin, cos, tan, sec, csc, cot = Output(SInt(TrigLUT.width.W))
+  })
+
+  import TrigLUT._
   val sinTable: Vec[SInt] = VecInit.tabulate(samples) { i =>
     val theta = math.Pi / 2 * i.toDouble / samples
     toFP(math.sin(theta))
@@ -24,17 +31,10 @@ object TrigLUT {
     toFP(1.0 / math.cos(theta))
   }
 
-}
-
-class TrigLUT extends Module {
-  val io = IO(new Bundle {
-    val angle = Input(SInt(TrigLUT.width.W)) // Q16.16 input
-    val sin = Output(SInt(TrigLUT.width.W))
-    val cos = Output(SInt(TrigLUT.width.W))
-    val sec = Output(SInt(TrigLUT.width.W))
-  })
-
-  import TrigLUT._
+  val cscTable = VecInit.tabulate(samples) { i =>
+    val theta = math.Pi / 2 * (i.toDouble + 0.5) / samples
+    toFP(1.0 / math.sin(theta))
+  }
 
   // constant 2/pi in Q16.16
   val twoOverPi = toFP(2.0 / math.Pi)
@@ -77,4 +77,16 @@ class TrigLUT extends Module {
       3.U -> secTable(mirrorIdxYU - idx)
     )
   )
+
+  io.csc := MuxLookup(quadrant, 0.S)(
+    Seq(
+      0.U -> cscTable(idx),
+      1.U -> cscTable(mirrorIdxYU - idx),
+      2.U -> -cscTable(idx),
+      3.U -> -cscTable(mirrorIdxYU - idx)
+    )
+  )
+
+  io.tan := io.sin.fpMul(io.sec)
+  io.cot := io.cos.fpMul(io.csc)
 }

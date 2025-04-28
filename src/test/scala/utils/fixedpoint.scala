@@ -91,14 +91,15 @@ class FixedPointALUSpec extends AnyFlatSpec {
     }
   }
 
-  it should "compute floor (toward −∞) correctly" in {
+  it should "compute floor correctly" in {
     val cases = Seq(
       (2.75, 2.0),
       (2.00, 2.0), // exact integer
       (-2.25, -3.0),
       (-2.00, -2.0),
       (0.99, 0.0),
-      (-0.01, -1.0)
+      (-0.01, -1.0),
+      (-2.7, -3.0)
     )
     withDut { dut =>
       for ((in, expected) <- cases) {
@@ -109,14 +110,15 @@ class FixedPointALUSpec extends AnyFlatSpec {
     }
   }
 
-  it should "compute ceil (toward +∞) correctly" in {
+  it should "compute ceil correctly" in {
     val cases = Seq(
       (2.75, 3.0),
       (2.00, 2.0), // no bump for exact integer
       (-2.25, -2.0),
       (-2.00, -2.0),
       (0.01, 1.0),
-      (-0.99, 0.0)
+      (-0.99, 0.0),
+      (-2.7, -2.0)
     )
     withDut { dut =>
       for ((in, expected) <- cases) {
