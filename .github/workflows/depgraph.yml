@@ -9,7 +9,6 @@ on:
 jobs:
   dependency-graph:
     name: Update Dependency Graph
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
