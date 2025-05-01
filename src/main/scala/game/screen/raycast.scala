@@ -65,7 +65,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val pos = RegInit(Vec2(0.S, 0.S))
   val distSquared = sqr(pos.x - startReg.x) + sqr(pos.y - startReg.y)
 
-  val step = RegInit(0.U(log2Ceil(maxSteps).W))
+  val step = RegInit(0.U(log2Ceil(maxSteps + 1).W))
 
   object State extends ChiselEnum {
     val sIdle, sInit, sStep, sCheck, sLoad = Value
