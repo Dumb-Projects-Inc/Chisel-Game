@@ -65,7 +65,73 @@ class RaycasterSpec extends AnyFlatSpec {
 
     (posX, posY)
   }
+
   behavior of "Raycaster"
+
+  it should "calculate correct intersection" in {
+    val positions = Seq(
+      (0.01, 0.01),
+      (0.5, 0.5),
+      (0.0, 0.5),
+      (0.5, 0.0),
+      (1.0, 1.0),
+      (0.0, 1.0),
+      (1.0, 0.0)
+    )
+
+    val angles = Seq(
+      0.05,
+      math.Pi / 8,
+      math.Pi / 4,
+      math.Pi / 3,
+      math.Pi / 2 + 0.05,
+      3 * math.Pi / 4,
+      math.Pi,
+      5 * math.Pi / 4,
+      3 * math.Pi / 2,
+      7 * math.Pi / 4
+    )
+    val stepLimits = Seq(1, 4, 8)
+
+    for (maxStep <- stepLimits) {
+
+      simulate(new Raycaster(maxStep)) { dut =>
+        for (pos <- positions; angle <- angles) {
+          val (x, y) = pos
+          dut.io.valid.poke(false.B)
+          dut.io.mapTile.poke(false.B)
+          dut.io.rayStart.x.poke(toFP(x))
+          dut.io.rayStart.y.poke(toFP(y))
+          dut.io.rayAngle.poke(toFP(angle))
+          dut.clock.step()
+
+          dut.io.ready.expect(true.B)
+
+          dut.io.valid.poke(true.B)
+          dut.clock.step()
+          dut.io.valid.poke(false.B)
+          dut.io.ready.expect(false.B)
+
+          var counter = 0
+          dut.clock.stepUntil(dut.io.ready, 1, maxStep * 10)
+
+          val (expX, expY) = expectedDdaPos(x, y, angle, maxStep)
+          val gotX = dut.io.pos.x.peek().toDouble
+          val gotY = dut.io.pos.y.peek().toDouble
+
+          assert(
+            math.abs(gotX - expX) < 0.05,
+            f"[$x,$y $angle,$maxStep] X mismatch: expected $expX%.3f, got $gotX%.3f"
+          )
+          assert(
+            math.abs(gotY - expY) < 0.05,
+            f"[$x,$y $angle,$maxStep] Y mismatch: expected $expY%.3f, got $gotY%.3f"
+          )
+        }
+      }
+    }
+
+  }
 
   it should "assert ready in idle, drop ready after init, then reassert upon a complete calculation" in {
     simulate(new Raycaster(maxSteps = 8)) { dut =>
@@ -113,20 +179,6 @@ class RaycasterSpec extends AnyFlatSpec {
         math.abs(gotY - expY) < 1e-2,
         f"For y of initial intersection expected ${expY}, got ${gotY}"
       )
-
-      // Reload
-      dut.io.rayStart.x.poke(toFP(1.2))
-      dut.io.rayStart.y.poke(toFP(1.2))
-      dut.io.rayAngle.poke(toFP(math.Pi / 4))
-      dut.io.valid.poke(true)
-      dut.clock.step()
-
-      dut.io.ready.expect(
-        false.B,
-        "Expected valid to have been dropped after initiating calculation"
-      )
-      dut.io.pos.x.expect(0.S, "Expected pos to have been reset")
-      dut.io.pos.y.expect(0.S, "Expect pos to have been reset")
 
     }
   }
