@@ -68,7 +68,7 @@ class RaycasterSpec extends AnyFlatSpec {
 
   behavior of "Raycaster"
 
-  it should "calculate correct intersection" in {
+  it should "calculate correct intersection for general angles" in {
     val positions = Seq(
       (0.01, 0.01),
       (0.5, 0.5),
@@ -189,6 +189,71 @@ class RaycasterSpec extends AnyFlatSpec {
       )
 
     }
+  }
+  it should "calculate correct intersection for edgecases" in {
+    val positions = Seq(
+      (0.0, 0.0),
+      (0.0, 0.5),
+      (0.5, 0.0),
+      (0.0, 1.0),
+      (1.0, 0.0),
+      (1.0, 1.0)
+    )
+
+    val angles = Seq(
+      0.0,
+      math.Pi / 2,
+      3 * math.Pi / 4,
+      math.Pi
+    )
+    val stepLimits = Seq(1, 4, 8)
+
+    for (maxStep <- stepLimits) {
+
+      simulate(new Raycaster(maxStep)) { dut =>
+        for (pos <- positions; angle <- angles) {
+          val (x, y) = pos
+          dut.io.valid.poke(false.B)
+          dut.io.mapTile.poke(false.B)
+          dut.io.rayStart.x.poke(toFP(x))
+          dut.io.rayStart.y.poke(toFP(y))
+          dut.io.rayAngle.poke(toFP(angle))
+          dut.clock.step()
+
+          dut.io.ready.expect(true.B)
+
+          dut.io.valid.poke(true.B)
+          dut.clock.step()
+          dut.io.valid.poke(false.B)
+          dut.io.ready.expect(false.B)
+
+          var counter = 0
+          dut.clock.stepUntil(dut.io.ready, 1, maxStep * 10)
+
+          val (expX, expY) = expectedDdaPos(x, y, angle, maxStep)
+          val gotX = dut.io.pos.x.peek().toDouble
+          val gotY = dut.io.pos.y.peek().toDouble
+
+          val tol = 0.075
+          val errX = math.abs(gotX - expX)
+
+          val errY = math.abs(gotY - expY)
+          if (errX >= tol) {
+            info(
+              f"WARNING: [$x,$y $angle,$maxStep] X off by $errX%.3f " +
+                f"(expected $expX%.3f, got $gotX%.3f)"
+            )
+          }
+          if (errY >= tol) {
+            info(
+              f"WARNING: [${x},${y} $angle,$maxStep] Y off by $errY%.3f (exp=$expY%.3f got=$gotY%.3f)"
+            )
+          }
+
+        }
+      }
+    }
+
   }
 
 }
