@@ -1,7 +1,7 @@
 package gameEngine.screen.raycast
 
 import chisel3._
-import chisel3.util.{Decoupled, switch, is}
+import chisel3.util._
 import gameEngine.fixed.FixedPointUtils._
 import chisel3.util.log2Ceil
 
@@ -38,10 +38,14 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val aPi = toFP(math.Pi)
   val aPiH = toFP(math.Pi / 2)
   val a3PiH = toFP(3 * math.Pi / 2)
+  val epsilon = 1.S(32.W)
+
+  val INF = ((BigInt(1) << (width - 1)) - 1).S(width.W)
+  val NEG_INF = -INF
 
   def sqr(x: SInt): SInt = x.fpMul(x)
 
-  val nearTol = toFP(0.01)
+  val nearTol = toFP(0.005)
   def near(a: SInt, b: SInt): Bool = (a > b - nearTol) && (a < b + nearTol)
 
   val trig = Module(new gameEngine.trig.TrigLUT)
@@ -80,6 +84,11 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     pos := Vec2(0.S, 0.S)
   }
 
+  val is0 = near(angleReg, a0)
+  val isPiH = near(angleReg, aPiH)
+  val isPi = near(angleReg, aPi)
+  val is3PiH = near(angleReg, a3PiH)
+
   io.ready := false.B
   switch(state) {
     is(sIdle) {
@@ -91,26 +100,42 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     }
 
     is(sInit) {
+
+      val tanVal = MuxCase(
+        trig.io.tan,
+        Seq(
+          isPiH -> INF,
+          is3PiH -> NEG_INF
+        )
+      )
+      val cotVal = MuxCase(
+        trig.io.cot,
+        Seq(
+          is0 -> INF,
+          isPi -> NEG_INF
+        )
+      )
+
       // find initial intersection
       val y0 = Mux(pointsSouth, startReg.y.fpCeil, startReg.y.fpFloor)
-      val hRay = Vec2(startReg.x + (y0 - startReg.y).fpMul(trig.io.cot), y0)
+      val hRay = Vec2(startReg.x + (y0 - startReg.y).fpMul(cotVal), y0)
       hRayReg := hRay
 
       val x0 = Mux(pointsEast, startReg.x.fpCeil, startReg.x.fpFloor)
-      val vRay = Vec2(x0, startReg.y + (x0 - startReg.x).fpMul(trig.io.tan))
+      val vRay = Vec2(x0, startReg.y + (x0 - startReg.x).fpMul(tanVal))
       vRayReg := vRay
 
       // calculate step values
       val hDelta =
         Vec2(
-          Mux(pointsSouth, trig.io.cot, -trig.io.cot),
+          Mux(pointsSouth, cotVal, -cotVal),
           Mux(pointsSouth, one, -one)
         )
       hDeltaReg := hDelta
       val vDelta =
         Vec2(
           Mux(pointsEast, one, -one),
-          Mux(pointsEast, trig.io.tan, -trig.io.tan)
+          Mux(pointsEast, tanVal, -tanVal)
         )
       vDeltaReg := vDelta
 
