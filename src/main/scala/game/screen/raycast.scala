@@ -39,38 +39,32 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val aPiH = toFP(math.Pi / 2)
   val a3PiH = toFP(3 * math.Pi / 2)
   val epsilon = 1.S(32.W)
-
   val INF = ((BigInt(1) << (width - 1)) - 1).S(width.W)
   val NEG_INF = -INF
 
   def sqr(x: SInt): SInt = x.fpMul(x)
 
-  val nearTol = toFP(0.005)
-  def near(a: SInt, b: SInt): Bool = (a > b - nearTol) && (a < b + nearTol)
+  def near(a: SInt, b: SInt, tol: Double = 0.005): Bool = {
+    val nearTol = toFP(tol)
+    (a > (b - nearTol)) && (a < (b + nearTol))
+  }
+  def dist2(v: Vec2): SInt = sqr(v.x - startReg.x) + sqr(v.y - startReg.y)
 
   val trig = Module(new gameEngine.trig.TrigLUT)
 
-  // Logic start
   val startReg = RegInit(Vec2(0.S, 0.S))
   val angleReg = RegInit(0.S(32.W))
-  trig.io.angle := angleReg
-
-  val pointsEast = angleReg <= aPiH || angleReg > a3PiH
-  val pointsSouth = angleReg < aPi
-
   val hRayReg = RegInit(Vec2(0.S, 0.S))
   val vRayReg = RegInit(Vec2(0.S, 0.S))
   val hDeltaReg = RegInit(Vec2(0.S, 0.S))
   val vDeltaReg = RegInit(Vec2(0.S, 0.S))
-
-  val dH2 = sqr(hRayReg.x - startReg.x) + sqr(hRayReg.y - startReg.y)
-  val dV2 = sqr(vRayReg.x - startReg.x) + sqr(vRayReg.y - startReg.y)
-
   val pos = RegInit(Vec2(0.S, 0.S))
-  val distSquared = sqr(pos.x - startReg.x) + sqr(pos.y - startReg.y)
-
   val step = RegInit(0.U(log2Ceil(maxSteps + 1).W))
 
+  val pointsEast = angleReg <= aPiH || angleReg > a3PiH
+  val pointsSouth = angleReg < aPi
+
+  trig.io.angle := angleReg
   object State extends ChiselEnum {
     val sIdle, sInit, sStep, sCheck, sLoad = Value
   }
@@ -78,23 +72,19 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   import State._
   val state = RegInit(sIdle)
 
-  when(fire) {
-    startReg := io.rayStart
-    angleReg := io.rayAngle
-    pos := Vec2(0.S, 0.S)
-  }
-
   val is0 = near(angleReg, a0)
   val isPiH = near(angleReg, aPiH)
   val isPi = near(angleReg, aPi)
   val is3PiH = near(angleReg, a3PiH)
 
-  io.ready := false.B
+  io.ready := (state === sIdle)
   switch(state) {
     is(sIdle) {
       step := 0.U
-      io.ready := true.B
       when(fire) {
+        startReg := io.rayStart
+        angleReg := io.rayAngle
+        pos := Vec2(0.S, 0.S)
         state := sInit
       }
     }
@@ -143,7 +133,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     }
 
     is(sLoad) {
-      when(dH2 <= dV2) {
+      when(dist2(hRayReg) <= dist2(vRayReg)) {
         pos := hRayReg
       }.otherwise {
         pos := vRayReg
@@ -156,7 +146,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       step := step + 1.U
 
       // calculate and step shortest ray
-      when(dH2 <= dV2) {
+      when(dist2(hRayReg) <= dist2(vRayReg)) {
         hRayReg := Vec2(hRayReg.x + hDeltaReg.x, hRayReg.y + hDeltaReg.y)
       }.otherwise {
         vRayReg := Vec2(vRayReg.x + vDeltaReg.x, vRayReg.y + vDeltaReg.y)
@@ -176,5 +166,5 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   }
 
   io.pos := pos
-  io.dist := distSquared
+  io.dist := dist2(pos)
 }
