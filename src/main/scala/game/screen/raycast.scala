@@ -133,7 +133,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     }
 
     is(sLoad) {
-      when(dist2(hRayReg) <= dist2(vRayReg)) {
+      when(!is0 & (dist2(hRayReg) < dist2(vRayReg))) {
         pos := hRayReg
       }.otherwise {
         pos := vRayReg
@@ -146,7 +146,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       step := step + 1.U
 
       // calculate and step shortest ray
-      when(dist2(hRayReg) <= dist2(vRayReg)) {
+      when(!is0 & (dist2(hRayReg) < dist2(vRayReg))) {
         hRayReg := Vec2(hRayReg.x + hDeltaReg.x, hRayReg.y + hDeltaReg.y)
       }.otherwise {
         vRayReg := Vec2(vRayReg.x + vDeltaReg.x, vRayReg.y + vDeltaReg.y)

@@ -91,7 +91,7 @@ class RaycasterSpec extends AnyFlatSpec {
       3 * math.Pi / 2,
       7 * math.Pi / 4
     )
-    val stepLimits = Seq(1, 4, 8)
+    val stepLimits = Seq(0, 1, 4, 8)
 
     for (maxStep <- stepLimits) {
 
@@ -113,7 +113,7 @@ class RaycasterSpec extends AnyFlatSpec {
           dut.io.ready.expect(false.B)
 
           var counter = 0
-          dut.clock.stepUntil(dut.io.ready, 1, maxStep * 10)
+          dut.clock.stepUntil(dut.io.ready, 1, (maxStep + 1) * 10)
 
           val (expX, expY) = expectedDdaPos(x, y, angle, maxStep)
           val gotX = dut.io.pos.x.peek().toDouble
@@ -206,7 +206,7 @@ class RaycasterSpec extends AnyFlatSpec {
       3 * math.Pi / 4,
       math.Pi
     )
-    val stepLimits = Seq(1, 4, 8)
+    val stepLimits = Seq(0, 1, 4, 8)
 
     for (maxStep <- stepLimits) {
 
@@ -228,7 +228,7 @@ class RaycasterSpec extends AnyFlatSpec {
           dut.io.ready.expect(false.B)
 
           var counter = 0
-          dut.clock.stepUntil(dut.io.ready, 1, maxStep * 10)
+          dut.clock.stepUntil(dut.io.ready, 1, (maxStep + 1) * 10)
 
           val (expX, expY) = expectedDdaPos(x, y, angle, maxStep)
           val gotX = dut.io.pos.x.peek().toDouble
