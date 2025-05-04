@@ -15,6 +15,10 @@ object Vec2 {
 
 class Vec2(maxSteps: Int = 256) extends Bundle {
   val x, y = SInt(32.W)
+
+  def +(that: Vec2): Vec2 = {
+    Vec2(this.x + that.x, this.y + that.y)
+  }
 }
 
 class Raycaster(maxSteps: Int = 12) extends Module {
@@ -48,6 +52,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     val nearTol = toFP(tol)
     (a > (b - nearTol)) && (a < (b + nearTol))
   }
+
   def dist2(v: Vec2): SInt = sqr(v.x - startReg.x) + sqr(v.y - startReg.y)
 
   val trig = Module(new gameEngine.trig.TrigLUT)
@@ -147,9 +152,9 @@ class Raycaster(maxSteps: Int = 12) extends Module {
 
       // calculate and step shortest ray
       when(!is0 & (dist2(hRayReg) < dist2(vRayReg))) {
-        hRayReg := Vec2(hRayReg.x + hDeltaReg.x, hRayReg.y + hDeltaReg.y)
+        hRayReg := hRayReg + hDeltaReg
       }.otherwise {
-        vRayReg := Vec2(vRayReg.x + vDeltaReg.x, vRayReg.y + vDeltaReg.y)
+        vRayReg := vRayReg + vDeltaReg
       }
 
       state := sLoad
