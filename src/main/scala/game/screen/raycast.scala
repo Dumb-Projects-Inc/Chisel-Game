@@ -62,7 +62,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val step = RegInit(0.U(log2Ceil(maxSteps + 1).W))
 
   val pointsEast = angleReg <= aPiH || angleReg > a3PiH
-  val pointsSouth = angleReg < aPi
+  val pointsNorth = angleReg < aPi
 
   trig.io.angle := angleReg
   object State extends ChiselEnum {
@@ -107,7 +107,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       )
 
       // find initial intersection
-      val y0 = Mux(pointsSouth, startReg.y.fpCeil, startReg.y.fpFloor)
+      val y0 = Mux(pointsNorth, startReg.y.fpCeil, startReg.y.fpFloor)
       val hRay = Vec2(startReg.x + (y0 - startReg.y).fpMul(cotVal), y0)
       hRayReg := hRay
 
@@ -118,8 +118,8 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       // calculate step values
       val hDelta =
         Vec2(
-          Mux(pointsSouth, cotVal, -cotVal),
-          Mux(pointsSouth, one, -one)
+          Mux(pointsNorth, cotVal, -cotVal),
+          Mux(pointsNorth, one, -one)
         )
       hDeltaReg := hDelta
       val vDelta =

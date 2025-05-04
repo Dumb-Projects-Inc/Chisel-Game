@@ -14,12 +14,12 @@ class RaycasterSpec extends AnyFlatSpec {
       nSteps: Int = 0
   ): (Double, Double) = {
     val pointsEast = angle <= math.Pi / 2 || angle > 3 * math.Pi / 2
-    val pointsSouth = angle < math.Pi
+    val pointsNorth = angle < math.Pi
 
     val tan = math.tan(angle)
     val cot = 1.0 / tan
 
-    val y0 = if (pointsSouth) math.ceil(startY) else math.floor(startY)
+    val y0 = if (pointsNorth) math.ceil(startY) else math.floor(startY)
     val hRayX0 = startX + (y0 - startY) * cot
     val hRayY0 = y0
 
@@ -27,8 +27,8 @@ class RaycasterSpec extends AnyFlatSpec {
     val vRayX0 = x0
     val vRayY0 = startY + (x0 - startX) * tan
 
-    val hDx = if (pointsSouth) cot else -cot
-    val hDy = if (pointsSouth) 1.0 else -1.0
+    val hDx = if (pointsNorth) cot else -cot
+    val hDy = if (pointsNorth) 1.0 else -1.0
     val vDx = if (pointsEast) 1.0 else -1.0
     val vDy = if (pointsEast) tan else -tan
 
