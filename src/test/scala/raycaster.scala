@@ -4,8 +4,15 @@ import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
 import chisel3.simulator.EphemeralSimulator._
 import gameEngine.fixed.FixedPointUtils._
+import org.scalatest.matchers.should.Matchers
 
-class RaycasterSpec extends AnyFlatSpec {
+class Vec2D(val x: Double, val y: Double) {
+  def norm(): Double = {
+    (x*x + y*y)
+  }
+}
+
+class RaycasterSpec extends AnyFlatSpec with Matchers {
 
   def expectedDdaPos(
       startX: Double,
@@ -13,20 +20,36 @@ class RaycasterSpec extends AnyFlatSpec {
       angle: Double,
       nSteps: Int = 0
   ): (Double, Double) = {
-    val pointsEast = angle <= math.Pi / 2 || angle > 3 * math.Pi / 2
+    val pointsEast = angle < math.Pi / 2 || angle > 3 * math.Pi / 2
     val pointsNorth = angle < math.Pi
+
+    val vertical = math.sin(angle) == 0
+    val horizontal = math.cos(angle) == 0
 
     val tan = math.tan(angle)
     val cot = 1.0 / tan
 
-    val y0 = if (pointsNorth) math.ceil(startY) else math.floor(startY)
-    val hRayX0 = startX + (y0 - startY) * cot
-    val hRayY0 = y0
+    val hRay0 = {
+      val y0 = if (pointsNorth) math.ceil(startY) else math.floor(startY)
+      if (vertical) {
+        new Vec2D(startX, y0)
+      } else if (horizontal) {
+        new Vec2D(Double.PositiveInfinity, y0)
+      } else {
+        new Vec2D(startX + (y0 - startY)*cot, y0)
+      }
+    }
 
-    val x0 = if (pointsEast) math.ceil(startX) else math.floor(startX)
-    val vRayX0 = x0
-    val vRayY0 = startY + (x0 - startX) * tan
-
+    val vRay0 = {
+      val y0 = if (pointsNorth) math.ceil(startY) else math.floor(startY)
+      if (vertical) {
+        new Vec2D(Double.PositiveInfinity, y0)
+      } else if (horizontal) {
+        new Vec2D(Double.PositiveInfinity, y0)
+      } else {
+        new Vec2D(startX + (y0 - startY)*cot, y0)
+      }
+    }
     val hDx = if (pointsNorth) cot else -cot
     val hDy = if (pointsNorth) 1.0 else -1.0
     val vDx = if (pointsEast) 1.0 else -1.0
@@ -47,7 +70,7 @@ class RaycasterSpec extends AnyFlatSpec {
 
     var (posX, posY) = pick()
 
-    for (_ <- 1 to nSteps) {
+    for (_ <- 0 to nSteps) {
       val dH2 =
         (hRayX - startX) * (hRayX - startX) + (hRayY - startY) * (hRayY - startY)
       val dV2 =
@@ -64,6 +87,49 @@ class RaycasterSpec extends AnyFlatSpec {
     }
 
     (posX, posY)
+  }
+
+  behavior of "expectedDdaPos"
+  it should "implement golden model correctly" in {
+    val origoTests: Seq[((Double, Double), Double, Int, (Double, Double))] = Seq(
+      // Shoot ray horizontally
+      ((0.0, 0.0),0, 0, (0.0, 0.0)),
+      ((0.0, 0.0),0, 1, (1.0, 0.0)),
+      ((0.0, 0.0),0, 2, (2.0, 0.0)),
+      ((0.0, 0.0),0, 3, (3.0, 0.0)),
+
+      // Shoot ray at 22.5 deg
+      ((0.0, 0.0), math.Pi / 8, 0, (0.0, 0.0)),
+      ((0.0, 0.0), math.Pi / 8, 1, (1.0, 0.4142)),
+      ((0.0, 0.0), math.Pi / 8, 2, (2.0, 0.82)),
+      ((0.0, 0.0), math.Pi / 8, 3, (3.0, 1.2)),
+
+      // Shoot ray at 45 deg
+      ((0.0, 0.0), math.Pi / 4, 0, (0.0, 0.0)),
+      ((0.0, 0.0), math.Pi / 4, 1, (1.0, 1.0)),
+      ((0.0, 0.0), math.Pi / 4, 2, (2.0, 2.0)),
+      ((0.0, 0.0), math.Pi / 4, 3, (3.0, 3.0)),
+      
+
+      // Shoot ray vertically
+      ((0.0, 0.0), math.Pi / 2, 0, (0.0, 0.0)),
+      ((0.0, 0.0), math.Pi / 2, 1, (0.0, 1.0)),
+      ((0.0, 0.0), math.Pi / 2, 2, (0.0, 2.0)),
+      ((0.0, 0.0), math.Pi / 2, 3, (0.0, 3.0)),
+    )
+
+    val tests = origoTests.distinct
+
+
+    for (((x, y), angle, steps, (expX, expY)) <- tests) {
+      val (gotX, gotY) = expectedDdaPos(x, y, angle, steps)
+      withClue(
+        f"startPos: (${x},${y}) - angle: ${angle}, - steps: ${steps} |"
+      ) {
+        gotX should be(expX)
+        gotY should be(expY)
+      }
+    }
   }
 
   behavior of "Raycaster"
