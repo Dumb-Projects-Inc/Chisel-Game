@@ -87,21 +87,21 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
     var pos = if (hRayLen() <= vRayLen()) hRay else vRay
 
     for (_ <- 0 until nSteps) {
-      if (hRayLen() < vRayLen()) {
+      if (math.abs(hRayLen() - vRayLen()) < eps) {
         hRay = Vec2D(
           hRay.x + hDx,
           hRay.y + hDy
         )
-      } else if (vRayLen() < hRayLen()) {
         vRay = Vec2D(
           vRay.x + vDx,
           vRay.y + vDy
         )
-      } else {
+      } else if (hRayLen() < vRayLen()) {
         hRay = Vec2D(
           hRay.x + hDx,
           hRay.y + hDy
         )
+      } else {
         vRay = Vec2D(
           vRay.x + vDx,
           vRay.y + vDy
@@ -156,9 +156,8 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
         // Ray hits both horizontal and vertical line at diagonal
         (Vec2D(0.0, 0.0), math.Pi / 4, 0, Vec2D(0.0, 0.0)),
         (Vec2D(0.0, 0.0), math.Pi / 4, 1, Vec2D(1.0, 1.0)),
-        (Vec2D(0.0, 0.0), math.Pi / 4, 2, Vec2D(1.0, 1.0)),
-        (Vec2D(0.0, 0.0), math.Pi / 4, 3, Vec2D(2.0, 2.0)),
-        (Vec2D(0.0, 0.0), math.Pi / 4, 4, Vec2D(2.0, 2.0)),
+        (Vec2D(0.0, 0.0), math.Pi / 4, 2, Vec2D(2.0, 2.0)),
+        (Vec2D(0.0, 0.0), math.Pi / 4, 3, Vec2D(3.0, 3.0)),
 
         // Shoot ray north
         (Vec2D(0.0, 0.0), math.Pi / 2, 0, Vec2D(0.0, 0.0)),
@@ -175,9 +174,8 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
         // Shoot ray north west
         (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
         (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 1, Vec2D(-1.0, 1.0)),
-        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 2, Vec2D(-1.0, 1.0)),
-        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 3, Vec2D(-2.0, 2.0)),
-        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 4, Vec2D(-2.0, 2.0)),
+        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 2, Vec2D(-2.0, 2.0)),
+        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 3, Vec2D(-3.0, 3.0)),
 
         // Shoot ray west
         (Vec2D(0.0, 0.0), math.Pi, 0, Vec2D(0.0, 0.0)),
@@ -188,9 +186,8 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
         // Shoot ray south west
         (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
         (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 1, Vec2D(-1.0, -1.0)),
-        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 2, Vec2D(-1.0, -1.0)),
-        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 3, Vec2D(-2.0, -2.0)),
-        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 4, Vec2D(-2.0, -2.0)),
+        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 2, Vec2D(-2.0, -2.0)),
+        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 3, Vec2D(-3.0, -3.0)),
 
         // Shoot ray south
         (Vec2D(0.0, 0.0), 6 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
@@ -202,9 +199,8 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
         // Shoot ray south east
         (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
         (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 1, Vec2D(1.0, -1.0)),
-        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 2, Vec2D(1.0, -1.0)),
-        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 3, Vec2D(2.0, -2.0)),
-        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 4, Vec2D(2.0, -2.0))
+        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 2, Vec2D(2.0, -2.0)),
+        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 3, Vec2D(3.0, -3.0))
       )
 
     testAngels(tests)
@@ -243,21 +239,18 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
 
       // NW
       (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 0, Vec2D(0.0, 1.0)),
-      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 1, Vec2D(0.0, 1.0)),
-      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 2, Vec2D(-1.0, 2.0)),
-      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 3, Vec2D(-1.0, 2.0)),
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 1, Vec2D(-1.0, 2.0)),
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 2, Vec2D(-2.0, 3.0)),
 
       // SW
       (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
-      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 1, Vec2D(0.0, 0.0)),
-      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 2, Vec2D(-1.0, -1.0)),
-      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 3, Vec2D(-1.0, -1.0)),
+      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 1, Vec2D(-1.0, -1.0)),
+      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 2, Vec2D(-2.0, -2.0)),
 
       // SE
       (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 0, Vec2D(1.0, 0.0)),
-      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 1, Vec2D(1.0, 0.0)),
-      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 2, Vec2D(2.0, -1.0)),
-      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 3, Vec2D(2.0, -1.0))
+      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 1, Vec2D(2.0, -1.0)),
+      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 2, Vec2D(3.0, -2.0))
     )
 
     testAngels(tests)
