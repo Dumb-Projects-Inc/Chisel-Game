@@ -6,7 +6,7 @@ import chisel3.simulator.EphemeralSimulator._
 import gameEngine.fixed.FixedPointUtils._
 import org.scalatest.matchers.should.Matchers
 
-class Vec2D(var x: Double, var y: Double) {
+case class Vec2D(x: Double, y: Double) {
   override def toString: String = s"(x=$x, y=$y)"
 }
 
@@ -83,16 +83,28 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
       math.sqrt(math.pow(vRay.x - start.x, 2) + math.pow(vRay.y - start.y, 2))
     }
 
-
     var pos = if (hRayLen() <= vRayLen()) hRay else vRay
 
-    for (_ <- 0 to nSteps) {
-      if (hRayLen() <= vRayLen()) {
-        hRay.x += hDx
-        hRay.y += hDy
+    for (_ <- 0 until nSteps) {
+      if (hRayLen() < vRayLen()) {
+        hRay = Vec2D(
+          hRay.x + hDx,
+          hRay.y + hDy
+        )
+      } else if (vRayLen() < hRayLen()) {
+        vRay = Vec2D(
+          vRay.x + vDx,
+          vRay.y + vDy
+        )
       } else {
-        vRay.x += vDx
-        vRay.y += vDy
+        hRay = Vec2D(
+          hRay.x + hDx,
+          hRay.y + hDy
+        )
+        vRay = Vec2D(
+          vRay.x + vDx,
+          vRay.y + vDy
+        )
       }
 
       if (hRayLen() <= vRayLen()) {
@@ -117,9 +129,9 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
 
         // Shoot ray at 22.5 deg
         (Vec2D(0.0, 0.0), math.Pi / 8, 0, Vec2D(0.0, 0.0)),
-        (Vec2D(0.0, 0.0), math.Pi / 8, 1, Vec2D(1.0, 0.4142)),
-        (Vec2D(0.0, 0.0), math.Pi / 8, 2, Vec2D(2.0, 0.82)),
-        (Vec2D(0.0, 0.0), math.Pi / 8, 3, Vec2D(2.4142, 1.2)),
+        (Vec2D(0.0, 0.0), math.Pi / 8, 1, Vec2D(1.0, 0.4142135)),
+        (Vec2D(0.0, 0.0), math.Pi / 8, 2, Vec2D(2.0, 0.8284271)),
+        (Vec2D(0.0, 0.0), math.Pi / 8, 3, Vec2D(2.4142135, 1)),
 
         // Shoot ray at 45 deg
         (Vec2D(0.0, 0.0), math.Pi / 4, 0, Vec2D(0.0, 0.0)),
@@ -140,12 +152,12 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
       withClue(
         f"start: ${start} - angle: ${angle}, - steps: ${steps} - coord: X ="
       ) {
-        result.x should be (end.x)
+        result.x should be (end.x +- 1e-5)
       }
       withClue(
-        f"start: ${start} - angle: ${angle}, - steps: ${steps} - coord: X ="
+        f"start: ${start} - angle: ${angle}, - steps: ${steps} - coord: Y ="
       ) {
-        result.y should be (end.y)
+        result.y should be (end.y +- 1e-5)
       }
     }
   }
