@@ -26,8 +26,9 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
     val pointsEast = angle < math.Pi / 2 || angle > 3 * math.Pi / 2
     val pointsNorth = angle < math.Pi
 
-    val vertical = math.cos(angle) == 0
-    val horizontal = math.sin(angle) == 0
+    val eps = 1e-6
+    val vertical = math.abs(math.cos(angle)) < eps
+    val horizontal = math.abs(math.sin(angle)) < eps
 
     val tan = math.tan(angle)
     val cot = 1.0 / tan
@@ -79,7 +80,7 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
       math.sqrt(math.pow(hRay.x - start.x, 2) + math.pow(hRay.y - start.y, 2))
     }
 
-    def vRayLen()= {
+    def vRayLen() = {
       math.sqrt(math.pow(vRay.x - start.x, 2) + math.pow(vRay.y - start.y, 2))
     }
 
@@ -117,48 +118,178 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
     (pos)
   }
 
+  type Test = (Vec2D, Double, Int, Vec2D)
+
+  def testAngels(tests: Seq[Test]): Unit = {
+    for ((start, angle, steps, end) <- tests) {
+      val result = expectedDdaPos(start, angle, steps)
+      withClue(
+        f"start: ${start} - angle: ${angle}%.3f, - steps: ${steps} - coord: X ="
+      ) {
+        result.x should be(end.x +- 1e-5)
+      }
+      withClue(
+        f"start: ${start} - angle: ${angle}%.3f, - steps: ${steps} - coord: Y ="
+      ) {
+        result.y should be(end.y +- 1e-5)
+      }
+    }
+  }
+
   behavior of "expectedDdaPos"
-  it should "implement golden model correctly" in {
-    val origoTests: Seq[(Vec2D, Double, Int, Vec2D)] =
+  it should "handle rays cast from a origo correctly" in {
+    val tests: Seq[Test] =
       Seq(
-        // Shoot ray horizontally
+        // Shoot ray east
         (Vec2D(0.0, 0.0), 0, 0, Vec2D(0.0, 0.0)),
         (Vec2D(0.0, 0.0), 0, 1, Vec2D(1.0, 0.0)),
         (Vec2D(0.0, 0.0), 0, 2, Vec2D(2.0, 0.0)),
         (Vec2D(0.0, 0.0), 0, 3, Vec2D(3.0, 0.0)),
 
-        // Shoot ray at 22.5 deg
+        // Shoot ray north east east
         (Vec2D(0.0, 0.0), math.Pi / 8, 0, Vec2D(0.0, 0.0)),
         (Vec2D(0.0, 0.0), math.Pi / 8, 1, Vec2D(1.0, 0.4142135)),
         (Vec2D(0.0, 0.0), math.Pi / 8, 2, Vec2D(2.0, 0.8284271)),
         (Vec2D(0.0, 0.0), math.Pi / 8, 3, Vec2D(2.4142135, 1)),
 
-        // Shoot ray at 45 deg
+        // Shoot ray at north east
+        // Ray hits both horizontal and vertical line at diagonal
         (Vec2D(0.0, 0.0), math.Pi / 4, 0, Vec2D(0.0, 0.0)),
         (Vec2D(0.0, 0.0), math.Pi / 4, 1, Vec2D(1.0, 1.0)),
-        (Vec2D(0.0, 0.0), math.Pi / 4, 2, Vec2D(2.0, 2.0)),
-        (Vec2D(0.0, 0.0), math.Pi / 4, 3, Vec2D(3.0, 3.0)),
+        (Vec2D(0.0, 0.0), math.Pi / 4, 2, Vec2D(1.0, 1.0)),
+        (Vec2D(0.0, 0.0), math.Pi / 4, 3, Vec2D(2.0, 2.0)),
+        (Vec2D(0.0, 0.0), math.Pi / 4, 4, Vec2D(2.0, 2.0)),
 
-        // Shoot ray vertically
+        // Shoot ray north
         (Vec2D(0.0, 0.0), math.Pi / 2, 0, Vec2D(0.0, 0.0)),
         (Vec2D(0.0, 0.0), math.Pi / 2, 1, Vec2D(0.0, 1.0)),
         (Vec2D(0.0, 0.0), math.Pi / 2, 2, Vec2D(0.0, 2.0)),
-        (Vec2D(0.0, 0.0), math.Pi / 2, 3, Vec2D(0.0, 3.0))
+        (Vec2D(0.0, 0.0), math.Pi / 2, 3, Vec2D(0.0, 3.0)),
+
+        // Shoot ray about north west
+        (Vec2D(0.0, 0.0), 2.0, 0, Vec2D(0.0, 0.0)),
+        (Vec2D(0.0, 0.0), 2.0, 1, Vec2D(-0.45765, 1.0)),
+        (Vec2D(0.0, 0.0), 2.0, 2, Vec2D(-0.91531, 2.0)),
+        (Vec2D(0.0, 0.0), 2.0, 3, Vec2D(-1.0, 2.185039)),
+
+        // Shoot ray north west
+        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
+        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 1, Vec2D(-1.0, 1.0)),
+        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 2, Vec2D(-1.0, 1.0)),
+        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 3, Vec2D(-2.0, 2.0)),
+        (Vec2D(0.0, 0.0), 3 * math.Pi / 4, 4, Vec2D(-2.0, 2.0)),
+
+        // Shoot ray west
+        (Vec2D(0.0, 0.0), math.Pi, 0, Vec2D(0.0, 0.0)),
+        (Vec2D(0.0, 0.0), math.Pi, 1, Vec2D(-1.0, 0.0)),
+        (Vec2D(0.0, 0.0), math.Pi, 2, Vec2D(-2.0, 0.0)),
+        (Vec2D(0.0, 0.0), math.Pi, 3, Vec2D(-3.0, 0.0)),
+
+        // Shoot ray south west
+        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
+        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 1, Vec2D(-1.0, -1.0)),
+        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 2, Vec2D(-1.0, -1.0)),
+        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 3, Vec2D(-2.0, -2.0)),
+        (Vec2D(0.0, 0.0), 5 * math.Pi / 4, 4, Vec2D(-2.0, -2.0)),
+
+        // Shoot ray south
+        (Vec2D(0.0, 0.0), 6 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
+        (Vec2D(0.0, 0.0), 6 * math.Pi / 4, 1, Vec2D(0.0, -1.0)),
+        (Vec2D(0.0, 0.0), 6 * math.Pi / 4, 2, Vec2D(0.0, -2.0)),
+        (Vec2D(0.0, 0.0), 6 * math.Pi / 4, 3, Vec2D(0.0, -3.0)),
+        (Vec2D(0.0, 0.0), 6 * math.Pi / 4, 4, Vec2D(0.0, -4.0)),
+
+        // Shoot ray south east
+        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
+        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 1, Vec2D(1.0, -1.0)),
+        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 2, Vec2D(1.0, -1.0)),
+        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 3, Vec2D(2.0, -2.0)),
+        (Vec2D(0.0, 0.0), 7 * math.Pi / 4, 4, Vec2D(2.0, -2.0))
       )
 
-    val tests = origoTests.distinct
-    for ((start, angle, steps, end) <- tests) {
-      val result = expectedDdaPos(start, angle, steps)
-      withClue(
-        f"start: ${start} - angle: ${angle}, - steps: ${steps} - coord: X ="
-      ) {
-        result.x should be (end.x +- 1e-5)
-      }
-      withClue(
-        f"start: ${start} - angle: ${angle}, - steps: ${steps} - coord: Y ="
-      ) {
-        result.y should be (end.y +- 1e-5)
-      }
-    }
+    testAngels(tests)
+  }
+
+  it should "handle rays cast from non integer position" in {
+    val tests: Seq[Test] = Seq(
+      // Towards origo from grid
+      (Vec2D(0.5, 0.0), math.Pi, 0, Vec2D(0.0, 0.0)),
+      (Vec2D(0.0, 0.5), 3 * math.Pi / 2, 0, Vec2D(0.0, 0.0)),
+      (Vec2D(-0.5, 0.0), 0, 0, Vec2D(0.0, 0.0)),
+      (Vec2D(0.0, -0.5), math.Pi / 2, 0, Vec2D(0.0, 0.0)),
+
+      // From middle of grid to right
+      (Vec2D(0.5, 0.5), 0, 0, Vec2D(1.0, 0.5)),
+      (Vec2D(0.5, 0.5), 0, 1, Vec2D(2.0, 0.5)),
+      (Vec2D(0.5, 0.5), 0, 2, Vec2D(3.0, 0.5)),
+
+      // Up
+      (Vec2D(0.5, 0.5), math.Pi / 2, 0, Vec2D(0.5, 1.0)),
+      (Vec2D(0.5, 0.5), math.Pi / 2, 1, Vec2D(0.5, 2.0)),
+      (Vec2D(0.5, 0.5), math.Pi / 2, 2, Vec2D(0.5, 3.0)),
+
+      // Down
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 2, 0, Vec2D(0.5, 0.0)),
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 2, 1, Vec2D(0.5, -1.0)),
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 2, 2, Vec2D(0.5, -2.0)),
+
+      // Left
+      (Vec2D(0.5, 0.5), math.Pi, 0, Vec2D(0.0, 0.5)),
+      (Vec2D(0.5, 0.5), math.Pi, 1, Vec2D(-1.0, 0.5)),
+      (Vec2D(0.5, 0.5), math.Pi, 2, Vec2D(-2.0, 0.5)),
+      (Vec2D(0.5, 0.5), math.Pi / 4, 0, Vec2D(1.0, 1.0)),
+      (Vec2D(0.5, 0.5), math.Pi / 4, 1, Vec2D(2.0, 2.0)),
+      (Vec2D(0.5, 0.5), math.Pi / 4, 2, Vec2D(3.0, 3.0)),
+
+      // NW
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 0, Vec2D(0.0, 1.0)),
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 1, Vec2D(0.0, 1.0)),
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 2, Vec2D(-1.0, 2.0)),
+      (Vec2D(0.5, 0.5), 3 * math.Pi / 4, 3, Vec2D(-1.0, 2.0)),
+
+      // SW
+      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
+      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 1, Vec2D(0.0, 0.0)),
+      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 2, Vec2D(-1.0, -1.0)),
+      (Vec2D(0.5, 0.5), 5 * math.Pi / 4, 3, Vec2D(-1.0, -1.0)),
+
+      // SE
+      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 0, Vec2D(1.0, 0.0)),
+      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 1, Vec2D(1.0, 0.0)),
+      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 2, Vec2D(2.0, -1.0)),
+      (Vec2D(0.5, 0.5), 7 * math.Pi / 4, 3, Vec2D(2.0, -1.0))
+    )
+
+    testAngels(tests)
+  }
+
+  it should "handle rays cast from negative start positions" in {
+    val tests: Seq[Test] = Seq(
+      (Vec2D(-1.2, -3.4), 0.0, 1, Vec2D(0.0, -3.4)),
+      (Vec2D(-1.2, -3.4), math.Pi / 2, 2, Vec2D(-1.2, -1.0)),
+      (Vec2D(-1.2, -3.4), math.Pi, 3, Vec2D(-5.0, -3.4)),
+      (Vec2D(-1.2, -3.4), 3 * math.Pi / 2, 4, Vec2D(-1.2, -8)),
+      (Vec2D(-1.2, -3.4), 2, 4, Vec2D(-2.7560356, 0))
+    )
+    testAngels(tests)
+  }
+
+  it should "handle angles outside [0,2pi)" in {
+    val tests: Seq[Test] = Seq(
+      // 2pi
+      (Vec2D(0.0, 0.0), 2 * math.Pi, 0, Vec2D(0.0, 0.0)),
+      (Vec2D(0.0, 0.0), 2 * math.Pi, 1, Vec2D(1.0, 0.0)),
+      (Vec2D(0.0, 0.0), 2 * math.Pi, 2, Vec2D(2.0, 0.0)),
+      (Vec2D(0.5, 0.0), 2 * math.Pi, 0, Vec2D(1.0, 0.0)),
+
+      // negative
+      (Vec2D(-0.2, 0.1), -3, 0, Vec2D(-0.901525, 0.0)),
+      (Vec2D(0.0, 0.0), -2 * math.Pi / 4, 0, Vec2D(0.0, 0.0)),
+      (Vec2D(0.0, 0.0), -2 * math.Pi / 4, 1, Vec2D(-1.0, 0.0)),
+
+      // large
+      (Vec2D(0.0, 0.0), 10, 0, Vec2D(0.0, 0.0)),
+      (Vec2D(0.0, 0.0), 10, 1, Vec2D(-1.0, -0.648))
+    )
   }
 }
