@@ -26,7 +26,11 @@ object FixedPointUtils {
         that.getWidth == width,
         s"fpMul: right operand width ${that.getWidth} != expected $width"
       )
-      (self * that) >> frac
+      val prod = ((self * that) >> frac)(width - 1, 0).asSInt
+      require(
+        prod.getWidth == width
+      )
+      prod
 
     }
 
