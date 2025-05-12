@@ -1,8 +1,6 @@
 package gameEngine.screen.raycast
 
 import org.scalatest.flatspec.AnyFlatSpec
-import chisel3._
-import chisel3.simulator.EphemeralSimulator._
 import gameEngine.fixed.FixedPointUtils._
 import org.scalatest.matchers.should.Matchers
 
@@ -16,8 +14,7 @@ object Vec2D {
   }
 }
 
-class RaycasterSpec extends AnyFlatSpec with Matchers {
-
+object RaycastGoldeModel {
   def expectedDdaPos(
       start: Vec2D,
       angle: Double,
@@ -118,6 +115,10 @@ class RaycasterSpec extends AnyFlatSpec with Matchers {
     (pos)
   }
 
+}
+
+class RaycasterSpec extends AnyFlatSpec with Matchers {
+  import RaycastGoldeModel._
   type Test = (Vec2D, Double, Int, Vec2D)
 
   def testAngels(tests: Seq[Test]): Unit = {
