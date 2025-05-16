@@ -68,7 +68,7 @@ The smaller one determines the next position to step.
 
 The ray continues stepping until:
 
-- It hits a wall (`mapTile == true`), or
+- It hits a wall (`stop == true`), or
 - It reaches a maximum number of steps.
 
 The final output is the hit position and the squared distance from the start.
