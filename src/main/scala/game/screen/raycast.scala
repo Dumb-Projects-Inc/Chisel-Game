@@ -154,10 +154,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     is(S.step) {
       stepReg := stepReg + 1.U
 
-      when(near(hRayDist, vRayDist, tol = 0.5)) {
-        hRayReg := hRayReg + hRayDeltaReg
-        vRayReg := vRayReg + vRayDeltaReg
-      }.elsewhen(hRayDist < vRayDist) {
+      when(hRayDist < vRayDist) {
         hRayReg := hRayReg + hRayDeltaReg
       }.otherwise {
         vRayReg := vRayReg + vRayDeltaReg
