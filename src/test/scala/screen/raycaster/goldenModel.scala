@@ -14,7 +14,7 @@ object Vec2D {
   }
 }
 
-object RaycastGoldeModel {
+object RaycasterGoldenModel {
   def expectedDdaPos(
       start: Vec2D,
       angle: Double,
@@ -117,8 +117,8 @@ object RaycastGoldeModel {
 
 }
 
-class RaycasterSpec extends AnyFlatSpec with Matchers {
-  import RaycastGoldeModel._
+class RaycasterGoldenModelSpec extends AnyFlatSpec with Matchers {
+  import RaycasterGoldenModel._
   type Test = (Vec2D, Double, Int, Vec2D)
 
   def testAngels(tests: Seq[Test]): Unit = {

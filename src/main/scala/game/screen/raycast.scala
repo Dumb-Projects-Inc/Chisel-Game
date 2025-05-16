@@ -4,6 +4,8 @@ import chisel3._
 import chisel3.util._
 import gameEngine.fixed.FixedPointUtils._
 import chisel3.util.log2Ceil
+import gameEngine.trig.TrigLUT
+import gameEngine.fixed.FixedPointUtils
 
 object Vec2 {
   def apply(x: SInt, y: SInt): Vec2 = {
@@ -25,7 +27,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val io = IO(new Bundle {
     val rayStart = Input(new Vec2())
     val rayAngle = Input(SInt(32.W))
-    val mapTile = Input(Bool()) // assert when current ray pos is a wall
+    val stop = Input(Bool()) // assert to stop the ray
 
     val pos = Output(new Vec2())
     val dist = Output(SInt(32.W))
@@ -33,143 +35,136 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     val valid = Input(Bool())
     val ready = Output(Bool())
   })
+  val MAX = FixedPointUtils.maxVal
 
-  val fire = io.valid & io.ready
-
-  // Constants and helpers
-  val one = toFP(1)
-  val a0 = toFP(0.0)
-  val aPi = toFP(math.Pi)
-  val aPiH = toFP(math.Pi / 2)
-  val a3PiH = toFP(3 * math.Pi / 2)
-  val epsilon = 1.S(32.W)
-  val INF = ((BigInt(1) << (width - 1)) - 1).S(width.W)
-  val NEG_INF = -INF
-
-  def sqr(x: SInt): SInt = x.fpMul(x)
-
-  def near(a: SInt, b: SInt, tol: Double = 0.005): Bool = {
-    val nearTol = toFP(tol)
-    (a > (b - nearTol)) && (a < (b + nearTol))
+  def near(a: SInt, b: SInt, tol: Double = 0.001): Bool = {
+    val diff = a - b
+    val absDiff = Mux(diff >= 0.S, diff, -diff)
+    absDiff <= toFP(tol)
   }
 
-  def dist2(v: Vec2): SInt = sqr(v.x - startReg.x) + sqr(v.y - startReg.y)
+  def sqr(a: SInt): SInt = {
+    a.fpMul(a)
+  }
 
-  val trig = Module(new gameEngine.trig.TrigLUT)
+  def dist2(v: Vec2): SInt =
+    sqr(v.x - startPosReg.x) +& sqr(v.y - startPosReg.y)
 
-  val startReg = RegInit(Vec2(0.S, 0.S))
   val angleReg = RegInit(0.S(32.W))
+  val currentPosReg = RegInit(Vec2(0.S, 0.S))
+  val startPosReg = RegInit(Vec2(0.S, 0.S))
   val hRayReg = RegInit(Vec2(0.S, 0.S))
   val vRayReg = RegInit(Vec2(0.S, 0.S))
-  val hDeltaReg = RegInit(Vec2(0.S, 0.S))
-  val vDeltaReg = RegInit(Vec2(0.S, 0.S))
-  val pos = RegInit(Vec2(0.S, 0.S))
-  val step = RegInit(0.U(log2Ceil(maxSteps + 1).W))
+  val hRayDeltaReg = RegInit(Vec2(0.S, 0.S))
+  val vRayDeltaReg = RegInit(Vec2(0.S, 0.S))
+  val stepReg = RegInit(0.U(log2Ceil(maxSteps + 1).W))
 
-  val pointsEast = angleReg <= aPiH || angleReg > a3PiH
-  val pointsNorth = angleReg < aPi
+  val hRayDist = dist2(hRayReg)
+  val vRayDist = dist2(vRayReg)
+  val currentDist = dist2(currentPosReg)
 
+  io.pos := currentPosReg
+  io.dist := currentDist
+
+  val trig = Module(new TrigLUT)
   trig.io.angle := angleReg
-  object State extends ChiselEnum {
-    val sIdle, sInit, sStep, sCheck, sLoad = Value
+
+  val vertical = near(trig.io.cos, 0.S)
+  val horizontal = near(trig.io.sin, 0.S)
+  val east = trig.io.cos >= 0.S
+  val north = trig.io.sin >= 0.S
+
+  object S extends ChiselEnum {
+    val idle, init, load, check, step = Value
   }
+  val state = RegInit(S.idle)
 
-  import State._
-  val state = RegInit(sIdle)
-
-  val is0 = near(angleReg, a0)
-  val isPiH = near(angleReg, aPiH)
-  val isPi = near(angleReg, aPi)
-  val is3PiH = near(angleReg, a3PiH)
-
-  io.ready := (state === sIdle)
+  io.ready := false.B
   switch(state) {
-    is(sIdle) {
-      step := 0.U
-      when(fire) {
-        startReg := io.rayStart
+    is(S.idle) {
+      io.ready := true.B
+
+      when(io.valid) {
         angleReg := io.rayAngle
-        pos := Vec2(0.S, 0.S)
-        state := sInit
+        currentPosReg := io.rayStart
+        startPosReg := io.rayStart
+        stepReg := 0.U
+        state := S.init
       }
     }
+    is(S.init) {
+      val x0 = Mux(east, startPosReg.x.fpCeil, startPosReg.x.fpFloor)
+      val y0 = Mux(north, startPosReg.y.fpCeil, startPosReg.y.fpFloor)
 
-    is(sInit) {
-
-      val tanVal = MuxCase(
-        trig.io.tan,
-        Seq(
-          isPiH -> INF,
-          is3PiH -> NEG_INF
-        )
-      )
-      val cotVal = MuxCase(
-        trig.io.cot,
-        Seq(
-          is0 -> INF,
-          isPi -> NEG_INF
-        )
+      val hRay0 = Mux(
+        horizontal,
+        Vec2(MAX, startPosReg.y),
+        Vec2(startPosReg.x + (y0 - startPosReg.y).fpMul(trig.io.cot), y0)
       )
 
-      // find initial intersection
-      val y0 = Mux(pointsNorth, startReg.y.fpCeil, startReg.y.fpFloor)
-      val hRay = Vec2(startReg.x + (y0 - startReg.y).fpMul(cotVal), y0)
-      hRayReg := hRay
+      val vRay0 = Mux(
+        vertical,
+        Vec2(startPosReg.x, MAX),
+        Vec2(x0, startPosReg.y + (x0 - startPosReg.x).fpMul(trig.io.tan))
+      )
 
-      val x0 = Mux(pointsEast, startReg.x.fpCeil, startReg.x.fpFloor)
-      val vRay = Vec2(x0, startReg.y + (x0 - startReg.x).fpMul(tanVal))
-      vRayReg := vRay
+      val hRayDelta = Vec2(
+        MuxCase(
+          Mux(north, trig.io.cot, -trig.io.cot),
+          Seq(
+            vertical -> 0.S,
+            horizontal -> MAX
+          )
+        ),
+        Mux(north, toFP(1), toFP(-1))
+      )
 
-      // calculate step values
-      val hDelta =
-        Vec2(
-          Mux(pointsNorth, cotVal, -cotVal),
-          Mux(pointsNorth, one, -one)
+      val vRayDelta = Vec2(
+        Mux(east, toFP(1), toFP(-1)),
+        MuxCase(
+          Mux(east, trig.io.tan, -trig.io.tan),
+          Seq(vertical -> MAX, horizontal -> 0.S)
         )
-      hDeltaReg := hDelta
-      val vDelta =
-        Vec2(
-          Mux(pointsEast, one, -one),
-          Mux(pointsEast, tanVal, -tanVal)
-        )
-      vDeltaReg := vDelta
+      )
 
-      state := sLoad
-    }
+      hRayReg := hRay0
+      vRayReg := vRay0
+      hRayDeltaReg := hRayDelta
+      vRayDeltaReg := vRayDelta
 
-    is(sLoad) {
-      when(!is0 & (dist2(hRayReg) < dist2(vRayReg))) {
-        pos := hRayReg
-      }.otherwise {
-        pos := vRayReg
-      }
-
-      state := sCheck
-    }
-
-    is(sStep) {
-      step := step + 1.U
-
-      // calculate and step shortest ray
-      when(!is0 & (dist2(hRayReg) < dist2(vRayReg))) {
-        hRayReg := hRayReg + hDeltaReg
-      }.otherwise {
-        vRayReg := vRayReg + vDeltaReg
-      }
-
-      state := sLoad
+      state := S.load
 
     }
-
-    is(sCheck) {
-      when(io.mapTile || step >= maxSteps.U) {
-        state := sIdle
+    is(S.load) {
+      when(hRayDist < vRayDist) {
+        currentPosReg := hRayReg
       }.otherwise {
-        state := sStep
+        currentPosReg := vRayReg
       }
+
+      state := S.check
+    }
+    is(S.check) {
+      when(io.stop | stepReg >= maxSteps.U) {
+        state := S.idle
+      }.otherwise {
+        state := S.step
+      }
+    }
+    is(S.step) {
+      stepReg := stepReg + 1.U
+
+      when(near(hRayDist, vRayDist, tol = 0.5)) {
+        hRayReg := hRayReg + hRayDeltaReg
+        vRayReg := vRayReg + vRayDeltaReg
+      }.elsewhen(hRayDist < vRayDist) {
+        hRayReg := hRayReg + hRayDeltaReg
+      }.otherwise {
+        vRayReg := vRayReg + vRayDeltaReg
+      }
+
+      state := S.load
     }
   }
 
-  io.pos := pos
-  io.dist := dist2(pos)
 }
