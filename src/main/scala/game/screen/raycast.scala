@@ -15,12 +15,18 @@ object Vec2 {
   }
 }
 
-class Vec2(maxSteps: Int = 256) extends Bundle {
+class Vec2 extends Bundle {
   val x, y = SInt(32.W)
 
   def +(that: Vec2): Vec2 = {
     Vec2(this.x + that.x, this.y + that.y)
   }
+
+  def dist(that: Vec2) =
+    (
+      (this.x - that.x).fpMul(this.x - that.x)
+        +& (this.y - that.y).fpMul(this.y - that.y)
+    )
 }
 
 class Raycaster(maxSteps: Int = 12) extends Module {
@@ -43,14 +49,6 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     absDiff <= toFP(tol)
   }
 
-  def sqr(a: SInt): SInt = {
-    a.fpMul(a)
-  }
-
-  def dist2(v: Vec2): SInt =
-    sqr(v.x - startPosReg.x) +& sqr(v.y - startPosReg.y)
-
-  val angleReg = RegInit(0.S(32.W))
   val currentPosReg = RegInit(Vec2(0.S, 0.S))
   val startPosReg = RegInit(Vec2(0.S, 0.S))
   val hRayReg = RegInit(Vec2(0.S, 0.S))
@@ -67,49 +65,13 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val east = trig.io.cos >= 0.S
   val north = trig.io.sin >= 0.S
 
-  val x0 = Mux(east, io.rayStart.x.fpCeil, io.rayStart.x.fpFloor)
-  val y0 = Mux(north, io.rayStart.y.fpCeil, io.rayStart.y.fpFloor)
-
-  val hRay0 = Mux(
-    horizontal,
-    Vec2(MAX, io.rayStart.y),
-    Vec2(io.rayStart.x + (y0 - io.rayStart.y).fpMul(trig.io.cot), y0)
-  )
-
-  val vRay0 = Mux(
-    vertical,
-    Vec2(io.rayStart.x, MAX),
-    Vec2(x0, io.rayStart.y + (x0 - io.rayStart.x).fpMul(trig.io.tan))
-  )
-
-  val hRayDelta = Vec2(
-    MuxCase(
-      Mux(north, trig.io.cot, -trig.io.cot),
-      Seq(
-        vertical -> 0.S,
-        horizontal -> MAX
-      )
-    ),
-    Mux(north, toFP(1), toFP(-1))
-  )
-
-  val vRayDelta = Vec2(
-    Mux(east, toFP(1), toFP(-1)),
-    MuxCase(
-      Mux(east, trig.io.tan, -trig.io.tan),
-      Seq(vertical -> MAX, horizontal -> 0.S)
-    )
-  )
-
-  val hRayDist = dist2(hRayReg)
-  val vRayDist = dist2(vRayReg)
-  val currentDist = dist2(currentPosReg)
+  val currentDist = currentPosReg.dist(startPosReg)
 
   io.pos := currentPosReg
   io.dist := currentDist
 
   object S extends ChiselEnum {
-    val idle, load, step = Value
+    val idle, step = Value
   }
   val state = RegInit(S.idle)
 
@@ -119,7 +81,39 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       io.ready := true.B
 
       when(io.valid) {
+        val x0 = Mux(east, io.rayStart.x.fpCeil, io.rayStart.x.fpFloor)
+        val y0 = Mux(north, io.rayStart.y.fpCeil, io.rayStart.y.fpFloor)
 
+        val hRay0 = Mux(
+          horizontal,
+          Vec2(MAX, io.rayStart.y),
+          Vec2(io.rayStart.x + (y0 - io.rayStart.y).fpMul(trig.io.cot), y0)
+        )
+
+        val vRay0 = Mux(
+          vertical,
+          Vec2(io.rayStart.x, MAX),
+          Vec2(x0, io.rayStart.y + (x0 - io.rayStart.x).fpMul(trig.io.tan))
+        )
+
+        val hRayDelta = Vec2(
+          MuxCase(
+            Mux(north, trig.io.cot, -trig.io.cot),
+            Seq(
+              vertical -> 0.S,
+              horizontal -> MAX
+            )
+          ),
+          Mux(north, toFP(1), toFP(-1))
+        )
+
+        val vRayDelta = Vec2(
+          Mux(east, toFP(1), toFP(-1)),
+          MuxCase(
+            Mux(east, trig.io.tan, -trig.io.tan),
+            Seq(vertical -> MAX, horizontal -> 0.S)
+          )
+        )
         hRayReg := hRay0
         vRayReg := vRay0
         hRayDeltaReg := hRayDelta
@@ -127,34 +121,38 @@ class Raycaster(maxSteps: Int = 12) extends Module {
 
         startPosReg := io.rayStart
         stepReg := 0.U
-        state := S.load
-      }
-    }
-    is(S.load) {
 
-      when(hRayDist < vRayDist) {
-        currentPosReg := hRayReg
-      }.otherwise {
-        currentPosReg := vRayReg
-      }
+        val hRayDist = hRay0.dist(io.rayStart)
+        val vRayDist = vRay0.dist(io.rayStart)
+        currentPosReg := Mux(hRayDist < vRayDist, hRay0, vRay0)
 
-      when(io.stop | stepReg >= maxSteps.U) {
-        state := S.idle
-      }.otherwise {
         state := S.step
+
       }
     }
     is(S.step) {
-      stepReg := stepReg + 1.U
+      when(io.stop) {
+        state := S.idle
 
-      when(hRayDist < vRayDist) {
-        hRayReg := hRayReg + hRayDeltaReg
+      }.elsewhen(stepReg < maxSteps.U) {
+        val hRayDist = hRayReg.dist(startPosReg)
+        val vRayDist = vRayReg.dist(startPosReg)
+        val hRayShortest = hRayDist < vRayDist
+
+        val hRayNext = Mux(hRayShortest, hRayReg + hRayDeltaReg, hRayReg)
+        val vRayNext = Mux(hRayShortest, vRayReg, vRayReg + vRayDeltaReg)
+        hRayReg := hRayNext
+        vRayReg := vRayNext
+
+        val nextHdist = hRayNext.dist(startPosReg)
+        val nextVdist = vRayNext.dist(startPosReg)
+
+        currentPosReg := Mux(nextHdist < nextVdist, hRayNext, vRayNext)
+
+        stepReg := stepReg + 1.U
       }.otherwise {
-        vRayReg := vRayReg + vRayDeltaReg
+        state := S.idle
       }
-
-      state := S.load
     }
   }
-
 }
