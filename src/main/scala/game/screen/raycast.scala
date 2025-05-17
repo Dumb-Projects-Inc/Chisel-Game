@@ -29,17 +29,22 @@ class Vec2 extends Bundle {
     )
 }
 
+class RayRequest extends Bundle {
+  val start = new Vec2()
+  val angle = SInt(32.W)
+}
+
+class RayResponse extends Bundle {
+  val pos = new Vec2()
+  val dist = SInt(32.W)
+}
+
 class Raycaster(maxSteps: Int = 12) extends Module {
   val io = IO(new Bundle {
-    val rayStart = Input(new Vec2())
-    val rayAngle = Input(SInt(32.W))
+    val in = Flipped(Decoupled(new RayRequest))
+    val out = Decoupled(new RayResponse)
     val stop = Input(Bool()) // assert to stop the ray
 
-    val pos = Output(new Vec2())
-    val dist = Output(SInt(32.W))
-
-    val valid = Input(Bool())
-    val ready = Output(Bool())
   })
   val MAX = FixedPointUtils.maxVal
 
@@ -58,7 +63,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val stepReg = RegInit(0.U(log2Ceil(maxSteps + 1).W))
 
   val trig = Module(new TrigLUT)
-  trig.io.angle := io.rayAngle
+  trig.io.angle := io.in.bits.angle
 
   val vertical = near(trig.io.cos, 0.S)
   val horizontal = near(trig.io.sin, 0.S)
@@ -67,33 +72,42 @@ class Raycaster(maxSteps: Int = 12) extends Module {
 
   val currentDist = currentPosReg.dist(startPosReg)
 
-  io.pos := currentPosReg
-  io.dist := currentDist
+  io.out.bits.pos := currentPosReg
+  io.out.bits.dist := currentDist
+  io.out.valid := false.B
 
   object S extends ChiselEnum {
-    val idle, step = Value
+    val idle, step, done = Value
   }
   val state = RegInit(S.idle)
 
-  io.ready := false.B
+  io.in.ready := false.B
   switch(state) {
     is(S.idle) {
-      io.ready := true.B
+      io.in.ready := true.B
 
-      when(io.valid) {
-        val x0 = Mux(east, io.rayStart.x.fpCeil, io.rayStart.x.fpFloor)
-        val y0 = Mux(north, io.rayStart.y.fpCeil, io.rayStart.y.fpFloor)
+      when(io.in.fire) {
+        val x0 =
+          Mux(east, io.in.bits.start.x.fpCeil, io.in.bits.start.x.fpFloor)
+        val y0 =
+          Mux(north, io.in.bits.start.y.fpCeil, io.in.bits.start.y.fpFloor)
 
         val hRay0 = Mux(
           horizontal,
-          Vec2(MAX, io.rayStart.y),
-          Vec2(io.rayStart.x + (y0 - io.rayStart.y).fpMul(trig.io.cot), y0)
+          Vec2(MAX, io.in.bits.start.y),
+          Vec2(
+            io.in.bits.start.x + (y0 - io.in.bits.start.y).fpMul(trig.io.cot),
+            y0
+          )
         )
 
         val vRay0 = Mux(
           vertical,
-          Vec2(io.rayStart.x, MAX),
-          Vec2(x0, io.rayStart.y + (x0 - io.rayStart.x).fpMul(trig.io.tan))
+          Vec2(io.in.bits.start.x, MAX),
+          Vec2(
+            x0,
+            io.in.bits.start.y + (x0 - io.in.bits.start.x).fpMul(trig.io.tan)
+          )
         )
 
         val hRayDelta = Vec2(
@@ -119,11 +133,11 @@ class Raycaster(maxSteps: Int = 12) extends Module {
         hRayDeltaReg := hRayDelta
         vRayDeltaReg := vRayDelta
 
-        startPosReg := io.rayStart
+        startPosReg := io.in.bits.start
         stepReg := 0.U
 
-        val hRayDist = hRay0.dist(io.rayStart)
-        val vRayDist = vRay0.dist(io.rayStart)
+        val hRayDist = hRay0.dist(io.in.bits.start)
+        val vRayDist = vRay0.dist(io.in.bits.start)
         currentPosReg := Mux(hRayDist < vRayDist, hRay0, vRay0)
 
         state := S.step
@@ -132,7 +146,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     }
     is(S.step) {
       when(io.stop) {
-        state := S.idle
+        state := S.done
 
       }.elsewhen(stepReg < maxSteps.U) {
         val hRayDist = hRayReg.dist(startPosReg)
@@ -151,8 +165,15 @@ class Raycaster(maxSteps: Int = 12) extends Module {
 
         stepReg := stepReg + 1.U
       }.otherwise {
+        state := S.done
+      }
+    }
+    is(S.done) {
+      io.out.valid := true.B
+      when(io.out.fire) {
         state := S.idle
       }
     }
+
   }
 }
