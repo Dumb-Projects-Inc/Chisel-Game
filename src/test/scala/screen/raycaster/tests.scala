@@ -133,7 +133,7 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim {
       (Vec2D(0.0, 0.0), math.Pi / 4, 20)
     )
 
-    val testsBySteps = tests.groupBy(_._3)
+    val testsBySteps = tests.groupBy(_._3).toSeq.sortBy((_._1))
 
     var maxErrCase: (Test, Double) = ((Vec2D(0.0, 0.0), 0, 0), 0.0)
 
