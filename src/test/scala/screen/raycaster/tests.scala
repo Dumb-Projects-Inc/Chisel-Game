@@ -154,7 +154,7 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim {
           dut.io.valid.poke(false.B)
           dut.io.ready.expect(false.B)
 
-          dut.clock.stepUntil(dut.io.ready, 1, (steps + 1) * 5)
+          dut.clock.stepUntil(dut.io.ready, 1, (steps + 1))
           dut.io.ready.expect(true.B)
 
           // Validate outputs
