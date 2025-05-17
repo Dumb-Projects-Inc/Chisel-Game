@@ -67,7 +67,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   io.dist := currentDist
 
   val trig = Module(new TrigLUT)
-  trig.io.angle := angleReg
+  trig.io.angle := io.rayAngle
 
   val vertical = near(trig.io.cos, 0.S)
   val horizontal = near(trig.io.sin, 0.S)
@@ -85,55 +85,49 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       io.ready := true.B
 
       when(io.valid) {
-        angleReg := io.rayAngle
-        currentPosReg := io.rayStart
+        val x0 = Mux(east, io.rayStart.x.fpCeil, io.rayStart.x.fpFloor)
+        val y0 = Mux(north, io.rayStart.y.fpCeil, io.rayStart.y.fpFloor)
+
+        val hRay0 = Mux(
+          horizontal,
+          Vec2(MAX, io.rayStart.y),
+          Vec2(io.rayStart.x + (y0 - io.rayStart.y).fpMul(trig.io.cot), y0)
+        )
+
+        val vRay0 = Mux(
+          vertical,
+          Vec2(io.rayStart.x, MAX),
+          Vec2(x0, io.rayStart.y + (x0 - io.rayStart.x).fpMul(trig.io.tan))
+        )
+
+        val hRayDelta = Vec2(
+          MuxCase(
+            Mux(north, trig.io.cot, -trig.io.cot),
+            Seq(
+              vertical -> 0.S,
+              horizontal -> MAX
+            )
+          ),
+          Mux(north, toFP(1), toFP(-1))
+        )
+
+        val vRayDelta = Vec2(
+          Mux(east, toFP(1), toFP(-1)),
+          MuxCase(
+            Mux(east, trig.io.tan, -trig.io.tan),
+            Seq(vertical -> MAX, horizontal -> 0.S)
+          )
+        )
+
+        hRayReg := hRay0
+        vRayReg := vRay0
+        hRayDeltaReg := hRayDelta
+        vRayDeltaReg := vRayDelta
+
         startPosReg := io.rayStart
         stepReg := 0.U
-        state := S.init
+        state := S.load
       }
-    }
-    is(S.init) {
-      val x0 = Mux(east, startPosReg.x.fpCeil, startPosReg.x.fpFloor)
-      val y0 = Mux(north, startPosReg.y.fpCeil, startPosReg.y.fpFloor)
-
-      val hRay0 = Mux(
-        horizontal,
-        Vec2(MAX, startPosReg.y),
-        Vec2(startPosReg.x + (y0 - startPosReg.y).fpMul(trig.io.cot), y0)
-      )
-
-      val vRay0 = Mux(
-        vertical,
-        Vec2(startPosReg.x, MAX),
-        Vec2(x0, startPosReg.y + (x0 - startPosReg.x).fpMul(trig.io.tan))
-      )
-
-      val hRayDelta = Vec2(
-        MuxCase(
-          Mux(north, trig.io.cot, -trig.io.cot),
-          Seq(
-            vertical -> 0.S,
-            horizontal -> MAX
-          )
-        ),
-        Mux(north, toFP(1), toFP(-1))
-      )
-
-      val vRayDelta = Vec2(
-        Mux(east, toFP(1), toFP(-1)),
-        MuxCase(
-          Mux(east, trig.io.tan, -trig.io.tan),
-          Seq(vertical -> MAX, horizontal -> 0.S)
-        )
-      )
-
-      hRayReg := hRay0
-      vRayReg := vRay0
-      hRayDeltaReg := hRayDelta
-      vRayDeltaReg := vRayDelta
-
-      state := S.load
-
     }
     is(S.load) {
       when(hRayDist < vRayDist) {
