@@ -38,14 +38,15 @@
     in {
       sbt = prev.sbt.override {jre = jdk;};
       scala = prev.scala_3.override {jre = jdk;};
+      inherit jdk;
     };
 
     devShells = forEachSupportedSystem ({pkgs}: {
       default = pkgs.mkShell {
-        packages = with pkgs; [sbt coursier gtkwave verilator];
+        packages = [pkgs.sbt pkgs.coursier pkgs.gtkwave pkgs.verilator pkgs.jdk];
       };
       circt-from-source = pkgs.mkShell {
-        packages = with pkgs; [sbt coursier gtkwave verilator circt];
+        packages = [pkgs.sbt pkgs.coursier pkgs.gtkwave pkgs.verilator pkgs.circt pkgs.jdk];
 
         CHISEL_FIRTOOL_PATH = "${pkgs.circt}/bin";
       };

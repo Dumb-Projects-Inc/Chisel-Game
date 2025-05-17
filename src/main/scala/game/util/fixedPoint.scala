@@ -7,6 +7,12 @@ object FixedPointUtils {
   val width = 32
   val frac = 16
 
+  val maxVal = ((BigInt(1) << (width - 1)) - 1).S(width.W)
+  val minVal = (-(BigInt(1) << (width - 1))).S(width.W)
+
+  val maxDouble = ((BigInt(1) << (width - 1)) - 1).toDouble / (1 << frac)
+  val minDouble = (-(BigInt(1) << (width - 1))).toDouble / (1 << frac)
+
   def toFP(x: Double): SInt = {
     val raw = BigInt((x * (1 << frac)).round)
     raw.S(width.W)
@@ -17,6 +23,7 @@ object FixedPointUtils {
 
   implicit class RichFP(val self: SInt) {
 
+    // Saturated multiplication
     def fpMul(that: SInt): SInt = {
       require(
         self.getWidth == width,
@@ -26,7 +33,20 @@ object FixedPointUtils {
         that.getWidth == width,
         s"fpMul: right operand width ${that.getWidth} != expected $width"
       )
-      (self * that) >> frac
+
+      val fullProd = self * that
+      val shifted = fullProd >> frac
+      val saturated =
+        Mux(
+          shifted > maxVal,
+          maxVal,
+          Mux(shifted < minVal, minVal, shifted(width - 1, 0).asSInt)
+        )
+
+      require(
+        saturated.getWidth == width
+      )
+      saturated
 
     }
 

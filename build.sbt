@@ -2,7 +2,7 @@ ThisBuild / scalaVersion := "2.13.16"
 ThisBuild / version := "0.1.0"
 ThisBuild / organization := "None"
 
-val chiselVersion = "6.7.0"
+val chiselVersion = "7.0.0-RC1"
 
 lazy val root = (project in file("."))
   .settings(
@@ -22,3 +22,6 @@ lazy val root = (project in file("."))
       "org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full
     )
   )
+
+Test / testOptions +=
+  Tests.Argument(TestFrameworks.ScalaTest, "-DemitVcd=1")

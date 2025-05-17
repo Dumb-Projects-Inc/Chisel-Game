@@ -78,7 +78,16 @@ class FixedPointALUSpec extends AnyFlatSpec {
       (1.5, 1.5, 2.25),
       (-1.0, 3.5, -3.5),
       (-1.5, -2.0, 3.0),
-      (0.5, -0.5, -0.25)
+      (0.5, -0.5, -0.25),
+      (0.5, 0.5, 0.25),
+      (-1.5, 1.0, -1.5),
+      (1.25, 2.00, 2.50),
+
+      // positive overflow
+      (maxDouble, 2.0, maxDouble),
+
+      // negative overflow
+      (minDouble, 2.0, minDouble)
     )
 
     withDut { dut =>
@@ -91,7 +100,7 @@ class FixedPointALUSpec extends AnyFlatSpec {
     }
   }
 
-  it should "compute floor correctly" in {
+  it should "compute floor, ceil and frac correctly" in {
     val cases = Seq(
       (2.75, 2.0),
       (2.00, 2.0), // exact integer
@@ -146,6 +155,7 @@ class FixedPointALUSpec extends AnyFlatSpec {
       }
     }
   }
+
 }
 
 class FixedPointUtilsSpec extends AnyFlatSpec {
