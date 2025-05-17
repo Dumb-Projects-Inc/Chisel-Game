@@ -6,6 +6,8 @@ import org.scalatest.matchers.should.Matchers
 
 case class Vec2D(x: Double, y: Double) {
   override def toString: String = s"(x=$x, y=$y)"
+
+  def norm: Double = math.sqrt(x * x + y * y)
 }
 
 object Vec2D {

@@ -135,6 +135,8 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim {
 
     val testsBySteps = tests.groupBy(_._3)
 
+    var maxErrCase: (Test, Double) = ((Vec2D(0.0, 0.0), 0, 0), 0.0)
+
     testsBySteps.foreach { case (steps, testGroup) =>
       simulate(new Raycaster(steps)) { dut =>
         testGroup.foreach { case (pos, angle, _) =>
@@ -156,18 +158,31 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim {
           dut.io.ready.expect(true.B)
 
           // Validate outputs
-          val gotX = dut.io.pos.x.peek().toDouble
-          val gotY = dut.io.pos.y.peek().toDouble
+          val got =
+            Vec2D(dut.io.pos.x.peek().toDouble, dut.io.pos.y.peek().toDouble)
           val tol = 0.1
 
           val exp = RaycasterGoldenModel.expectedDdaPos(pos, angle, steps)
+          val err = Vec2D(math.abs(got.x - exp.x), math.abs(got.y - exp.y)).norm
+          if (err > maxErrCase._2) {
+            maxErrCase = ((pos, angle, steps), err)
+          }
           assert(
-            math.abs(gotX - exp.x) < tol && math.abs(gotY - exp.y) < tol,
-            f"Test failed: [${pos.x}%.1f,${pos.y}%.1f] @ $angle%.3f rad, steps=$steps. Got: (${gotX}%.3f,${gotY}%.3f), expected: (${exp.x}%.3f, ${exp.y}%.3f)"
+            err < tol,
+            f"Test failed: [${pos.x}%.1f,${pos.y}%.1f] @ $angle%.3f rad x $steps. Got: (${got.x}%.3f,${got.y}%.3f), expected: (${exp.x}%.3f, ${exp.y}%.3f)"
           )
         }
       }
     }
+
+    val test = maxErrCase._1
+    val pos = test._1
+    val angle = test._2
+    val steps = test._3
+    val err = maxErrCase._2
+    info(
+      f"Maximum error was: ${err}%.3f in case: [${pos.x}%.1f, ${pos.y}%.1f @ $angle%.3f rad x $steps]"
+    )
   }
 
 }
