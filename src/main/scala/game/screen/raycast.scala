@@ -59,13 +59,6 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val vRayDeltaReg = RegInit(Vec2(0.S, 0.S))
   val stepReg = RegInit(0.U(log2Ceil(maxSteps + 1).W))
 
-  val hRayDist = dist2(hRayReg)
-  val vRayDist = dist2(vRayReg)
-  val currentDist = dist2(currentPosReg)
-
-  io.pos := currentPosReg
-  io.dist := currentDist
-
   val trig = Module(new TrigLUT)
   trig.io.angle := io.rayAngle
 
@@ -74,8 +67,49 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val east = trig.io.cos >= 0.S
   val north = trig.io.sin >= 0.S
 
+  val x0 = Mux(east, io.rayStart.x.fpCeil, io.rayStart.x.fpFloor)
+  val y0 = Mux(north, io.rayStart.y.fpCeil, io.rayStart.y.fpFloor)
+
+  val hRay0 = Mux(
+    horizontal,
+    Vec2(MAX, io.rayStart.y),
+    Vec2(io.rayStart.x + (y0 - io.rayStart.y).fpMul(trig.io.cot), y0)
+  )
+
+  val vRay0 = Mux(
+    vertical,
+    Vec2(io.rayStart.x, MAX),
+    Vec2(x0, io.rayStart.y + (x0 - io.rayStart.x).fpMul(trig.io.tan))
+  )
+
+  val hRayDelta = Vec2(
+    MuxCase(
+      Mux(north, trig.io.cot, -trig.io.cot),
+      Seq(
+        vertical -> 0.S,
+        horizontal -> MAX
+      )
+    ),
+    Mux(north, toFP(1), toFP(-1))
+  )
+
+  val vRayDelta = Vec2(
+    Mux(east, toFP(1), toFP(-1)),
+    MuxCase(
+      Mux(east, trig.io.tan, -trig.io.tan),
+      Seq(vertical -> MAX, horizontal -> 0.S)
+    )
+  )
+
+  val hRayDist = dist2(hRayReg)
+  val vRayDist = dist2(vRayReg)
+  val currentDist = dist2(currentPosReg)
+
+  io.pos := currentPosReg
+  io.dist := currentDist
+
   object S extends ChiselEnum {
-    val idle, init, load, check, step = Value
+    val idle, load, step = Value
   }
   val state = RegInit(S.idle)
 
@@ -85,39 +119,6 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       io.ready := true.B
 
       when(io.valid) {
-        val x0 = Mux(east, io.rayStart.x.fpCeil, io.rayStart.x.fpFloor)
-        val y0 = Mux(north, io.rayStart.y.fpCeil, io.rayStart.y.fpFloor)
-
-        val hRay0 = Mux(
-          horizontal,
-          Vec2(MAX, io.rayStart.y),
-          Vec2(io.rayStart.x + (y0 - io.rayStart.y).fpMul(trig.io.cot), y0)
-        )
-
-        val vRay0 = Mux(
-          vertical,
-          Vec2(io.rayStart.x, MAX),
-          Vec2(x0, io.rayStart.y + (x0 - io.rayStart.x).fpMul(trig.io.tan))
-        )
-
-        val hRayDelta = Vec2(
-          MuxCase(
-            Mux(north, trig.io.cot, -trig.io.cot),
-            Seq(
-              vertical -> 0.S,
-              horizontal -> MAX
-            )
-          ),
-          Mux(north, toFP(1), toFP(-1))
-        )
-
-        val vRayDelta = Vec2(
-          Mux(east, toFP(1), toFP(-1)),
-          MuxCase(
-            Mux(east, trig.io.tan, -trig.io.tan),
-            Seq(vertical -> MAX, horizontal -> 0.S)
-          )
-        )
 
         hRayReg := hRay0
         vRayReg := vRay0
@@ -130,15 +131,13 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       }
     }
     is(S.load) {
+
       when(hRayDist < vRayDist) {
         currentPosReg := hRayReg
       }.otherwise {
         currentPosReg := vRayReg
       }
 
-      state := S.check
-    }
-    is(S.check) {
       when(io.stop | stepReg >= maxSteps.U) {
         state := S.idle
       }.otherwise {
