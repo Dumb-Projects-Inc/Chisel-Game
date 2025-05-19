@@ -1,6 +1,5 @@
 permissions:
   contents: read
-  dependencies: write
 
 on:
   workflow_dispatch:
