@@ -1,16 +1,7 @@
 {
   description = "A Nix-flake-based Scala development environment";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-  nixConfig = {
-    extra-substituters = [
-      "https://circt1620.cachix.org"
-    ];
-    extra-trusted-public-keys = [
-      "circt1620.cachix.org-1:/1sHl+1qjimZwMDWv+3DV+kKzGqEkPLmctaBQSdV8a0="
-    ];
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/10a8c79dc0d1e447609349f142a46a3dbd7dfa3a";
 
   outputs = {
     self,
@@ -24,12 +15,6 @@
         f {
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [
-              self.overlays.default
-              (final: prev: {
-                circt = prev.callPackage ./circt/package.nix {};
-              })
-            ];
           };
         });
   in {
@@ -43,17 +28,9 @@
 
     devShells = forEachSupportedSystem ({pkgs}: {
       default = pkgs.mkShell {
-        packages = [pkgs.sbt pkgs.coursier pkgs.gtkwave pkgs.verilator pkgs.jdk];
-      };
-      circt-from-source = pkgs.mkShell {
-        packages = [pkgs.sbt pkgs.coursier pkgs.gtkwave pkgs.verilator pkgs.circt pkgs.jdk];
-
+        packages = with pkgs; [sbt coursier gtkwave verilator jdk circt python3];
         CHISEL_FIRTOOL_PATH = "${pkgs.circt}/bin";
       };
-    });
-
-    packages = forEachSupportedSystem ({pkgs}: {
-      circt = pkgs.callPackage ./circt/package.nix {};
     });
   };
 }
