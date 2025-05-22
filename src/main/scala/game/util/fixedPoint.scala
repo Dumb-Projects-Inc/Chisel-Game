@@ -7,8 +7,8 @@ object FixedPointUtils {
   val width = 32
   val frac = 16
 
-  val maxVal = ((BigInt(1) << (width - 1)) - 1).S(width.W)
-  val minVal = (-(BigInt(1) << (width - 1))).S(width.W)
+  val MAX = ((BigInt(1) << (width - 1)) - 1).S(width.W)
+  val MIN = (-(BigInt(1) << (width - 1))).S(width.W)
 
   val maxDouble = ((BigInt(1) << (width - 1)) - 1).toDouble / (1 << frac)
   val minDouble = (-(BigInt(1) << (width - 1))).toDouble / (1 << frac)
@@ -38,9 +38,9 @@ object FixedPointUtils {
       val shifted = fullProd >> frac
       val saturated =
         Mux(
-          shifted > maxVal,
-          maxVal,
-          Mux(shifted < minVal, minVal, shifted(width - 1, 0).asSInt)
+          shifted > MAX,
+          MAX,
+          Mux(shifted < MIN, MIN, shifted(width - 1, 0).asSInt)
         )
 
       require(
