@@ -6,45 +6,54 @@ import chisel3.stage.ChiselGeneratorAnnotation
 import circt.stage.{ChiselStage, FirtoolOption}
 
 import gameEngine.screen._
+import gameEngine.vec2.Vec2
+import gameEngine.fixed.FixedPointUtils._
+import gameEngine.trig.TrigLUT
+import chisel3.util.MuxCase
+import gameEngine.screen.raycast.Raycaster
 
 class Engine extends Module {
-  val io = IO(new Bundle {
-    val vga = new VGAInterface
-  })
 
-  val rdAddr = WireInit(0.U(log2Ceil(1024).W))
+  val pos = Vec2(toFP(1.0), toFP(1.0))
+  val angle = toFP(math.Pi / 2)
 
-  val linebuffer = Module(new LineBuffer)
-  linebuffer.io.wrAddr := 0.U
-  linebuffer.io.wrData := DontCare
-  linebuffer.io.address := rdAddr
-  linebuffer.io.switch := false.B
-  val pixelReg = linebuffer.io.data
+  val trig = Module(new TrigLUT)
+  trig.io.angle := angle
 
-  // Init framebuffer with a pattern
-  // in a state machine
+  val east = trig.io.cos >= 0.S
+  val north = trig.io.sin >= 0.S
 
-  val init = RegInit(0.U(32.W))
-  val doneRender = RegInit(false.B)
-  when(!doneRender) {
-    when(init < 640.U) {
-      linebuffer.io.wrAddr := init(11, 0)
-      linebuffer.io.wrData := init(11, 0)
-      init := init + 1.U
-    }.otherwise {
-      linebuffer.io.wrAddr := 0.U
-      linebuffer.io.switch := true.B
-      doneRender := true.B
-    }
-  }.otherwise {
-    linebuffer.io.switch := false.B
-  }
+  val mapSeq = Seq(
+    Seq(1, 1, 1),
+    Seq(1, 0, 1),
+    Seq(1, 1, 1)
+  )
+  val map = VecInit.tabulate(3, 3) { (x, y) => mapSeq(x)(y).B }
 
-  val controller = Module(new VGAController)
+  val raycaster = Module(new Raycaster)
+  raycaster.io.in.bits.start := pos
+  raycaster.io.in.bits.angle := angle
+  raycaster.io.in.valid := true.B
+  raycaster.io.out.ready := false.B
 
-  rdAddr := controller.io.rdAddr
-  controller.io.pixel := pixelReg
-  io.vga := controller.io.vga
+  val x = raycaster.io.out.bits.pos.x
+  val y = raycaster.io.out.bits.pos.y
+
+  val idx = Mux(
+    raycaster.io.out.bits.isHorizontal,
+    MuxCase(
+      Vec2(0.S, 0.S),
+      Seq(
+        (east & north) -> Vec2(x.fpFloor, y.fpFloor)
+      )
+    ),
+    MuxCase(
+      Vec2(0.S, 0.S),
+      Seq(
+        (east & north) -> Vec2(x.fpFloor, y.fpFloor)
+      )
+    )
+  )
 
 }
 

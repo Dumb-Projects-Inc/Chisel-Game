@@ -359,6 +359,8 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim with Matchers {
       (Vec2D(0, 0), 3 * math.Pi / 2, 1, true),
 
       // at gridline, pointing towards corner
+      // note how at the second corner, the order is a bit erratic
+      // this doesnt matter as long as both the hori and verti gridline gets checked
       (Vec2D(0, 0), math.Pi / 4, 0, false),
       (Vec2D(0, 0), math.Pi / 4, 1, true),
       (Vec2D(0, 0), math.Pi / 4, 2, true),

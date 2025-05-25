@@ -78,6 +78,20 @@ object FixedPointUtils {
       absVal & mask
     }
 
+    def fpRound: SInt = {
+      require(
+        self.getWidth == width,
+        s"fpRound: operand width ${self.getWidth} != expected $width"
+      )
+      val half = FixedPointUtils.toFP(0.5)
+      val sum = (self + half)(width - 1, 0).asSInt
+      require(
+        sum.getWidth == width,
+        s"fpRound: operand width ${sum.getWidth} != expected $width"
+      )
+      sum.fpFloor
+    }
+
     def toDouble: Double =
       self.litValue.toDouble / (1 << frac)
   }
