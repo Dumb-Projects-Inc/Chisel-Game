@@ -39,11 +39,13 @@ class VGAController(i2cEn: Boolean = false, noBlackBox: Boolean = false)
 
   // Enable simulation without IP
   if (!noBlackBox) {
+    // $COVERAGE-OFF
     val pll = Module(new PLLBlackBox)
     pll.io.clock := clock
     pll.io.reset := reset
     clk25MHz := pll.io.clk25MHz
     locked := pll.io.locked
+    // $COVERAGE-ON
   } else {
     clk25MHz := clock
     locked := true.B
