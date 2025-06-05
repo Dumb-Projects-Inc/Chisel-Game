@@ -7,29 +7,39 @@ import circt.stage.{ChiselStage, FirtoolOption}
 
 import gameEngine.screen._
 import gameEngine.renderer.RainbowRenderer
-import gameEngine.sprite.ImageSprite
+import gameEngine.entity.SpriteEntity
 
 class Engine extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
   })
 
-  val sprite = Module(new ImageSprite("./smiley-64.png", 64, 64))
+  val sprite = Module(new SpriteEntity("./smiley-64.png", 10))
   val controller = Module(new VGAController)
   val rainbow = Module(new RainbowRenderer)
 
-  val visible =
-    controller.io.x < 64.U && controller.io.y < 64.U && !sprite.io.transparent
 
-  sprite.io.x := controller.io.x
-  sprite.io.y := controller.io.y
+  sprite.io.in.screen.x := controller.io.x
+  sprite.io.in.screen.y := controller.io.y
+
+  sprite.io.in.pos.wrEn := true.B
+  sprite.io.in.pos.x := 100.U
+  sprite.io.in.pos.y := 100.U
+
+  sprite.io.in.acceleration.wrEn := false.B
+  sprite.io.in.speed.wrEn := false.B
+
+  sprite.io.in.speed.x := DontCare
+  sprite.io.in.speed.y := DontCare
+  sprite.io.in.acceleration.x := DontCare
+  sprite.io.in.acceleration.y := DontCare
 
   rainbow.io.x := controller.io.x
   rainbow.io.y := controller.io.y
 
   controller.io.pixel := Mux(
-    visible,
-    sprite.io.r ## sprite.io.g ## sprite.io.b,
+    sprite.io.visible,
+    sprite.io.pixel,
     rainbow.io.resultPixel
   )
 
