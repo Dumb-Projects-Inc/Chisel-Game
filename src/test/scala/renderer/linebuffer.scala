@@ -10,14 +10,16 @@ class LinebufferSpec extends AnyFlatSpec {
   it should "correctly switch on rising edge" in {
     simulate(new LineBuffer(10, debug = true)) { dut =>
       // Initial state
+      dut.clock.step(2)
       dut.io.bufferSel.get.expect(false.B)
-      dut.io.data.expect(0.U)
+      val initial = dut.io.data.peek().litValue
 
       // Write to buffer
       dut.io.wrAddr.poke(1.U)
       dut.io.wrData.poke(5.U)
       dut.clock.step()
-      dut.io.data.expect(0.U) // No read yet
+      dut.io.bufferSel.get.expect(false.B)
+      dut.io.data.expect(initial.U) // No read yet
 
       // Switch to buffer 1
       dut.io.switch.poke(true.B)

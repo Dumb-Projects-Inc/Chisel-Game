@@ -28,7 +28,7 @@ class VGAController(i2cEn: Boolean = false, noBlackBox: Boolean = false)
     val vga = new VGAInterface(i2cEn)
   })
 
-  val visible = Wire(Bool())
+  val visible = WireDefault(false.B)
   val xPos = Wire(UInt(10.W))
   val yPos = Wire(UInt(10.W))
   val pixel = WireInit("b111111111111".U) // Initialize pixel to white

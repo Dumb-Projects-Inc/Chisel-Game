@@ -3,7 +3,8 @@ package gameEngine.renderer
 import chisel3._
 import chisel3.util.{Cat, log2Ceil, switch, is}
 
-class RainbowRenderer extends Renderer {
+class RainbowRenderer extends Module {
+  val io = IO(new RendererInterface)
   // 60 fps
   val counter = RegInit(0.U(log2Ceil(1_666_666).W))
   val colorOffset = RegInit(0.U(8.W))

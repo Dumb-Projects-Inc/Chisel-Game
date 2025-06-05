@@ -8,6 +8,11 @@ class RainbowRendererSpec extends AnyFlatSpec {
   behavior of "RainbowRenderer"
   it should "Render a Rainbow" in {
     simulate(new RainbowRenderer) { dut =>
+      //reset
+      dut.reset.poke(true.B)
+      dut.clock.step(1)
+      dut.reset.poke(false.B)
+
       // Initial state
       dut.io.x.poke(0.U)
       dut.io.y.poke(0.U)

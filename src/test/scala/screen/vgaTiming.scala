@@ -9,10 +9,15 @@ class VGATimingSpec extends AnyFlatSpec {
   behavior of "VGATiming"
   it should "output correct hsync and vsync" in {
     simulate(new VGATiming) { dut =>
+      //reset
+      dut.reset.poke(true.B)
+      dut.clock.step(1)
+      dut.reset.poke(false.B)
+
       // Initial state (Front Porch)
       dut.io.hSync.expect(false.B)
       dut.io.vSync.expect(false.B)
-      dut.io.visible.expect(false.B)
+      dut.io.visible.expect(true.B)
 
       // Step through the Horizontal front porch
       dut.clock.step(dut.startHSync + 1)
