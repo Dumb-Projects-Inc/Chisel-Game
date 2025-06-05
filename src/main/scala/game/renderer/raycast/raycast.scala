@@ -1,20 +1,21 @@
 package gameEngine.raycast
 
 import chisel3._
+import chisel3.Mux
 import chisel3.util._
-import chisel3.util.log2Ceil
 
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.trig.TrigLUT
 import gameEngine.vec2._
+import gameEngine.vec2.Vec2._
 
 class RayRequest extends Bundle {
-  val start = new Vec2()
+  val start = new Vec2(SInt(32.W))
   val angle = SInt(32.W)
 }
 
 class RayResponse extends Bundle {
-  val pos = new Vec2()
+  val pos = new Vec2(SInt(32.W))
   val dist = SInt(32.W)
 }
 
@@ -32,12 +33,12 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     absDiff <= toFP(tol)
   }
 
-  val currentPosReg = RegInit(Vec2(0.S, 0.S))
-  val startPosReg = RegInit(Vec2(0.S, 0.S))
-  val hRayReg = RegInit(Vec2(0.S, 0.S))
-  val vRayReg = RegInit(Vec2(0.S, 0.S))
-  val hRayDeltaReg = RegInit(Vec2(0.S, 0.S))
-  val vRayDeltaReg = RegInit(Vec2(0.S, 0.S))
+  val currentPosReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
+  val startPosReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
+  val hRayReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
+  val vRayReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
+  val hRayDeltaReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
+  val vRayDeltaReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
   val stepReg = RegInit(0.U(log2Ceil(maxSteps + 1).W))
 
   val trig = Module(new TrigLUT)
@@ -48,7 +49,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val east = trig.io.cos >= 0.S
   val north = trig.io.sin >= 0.S
 
-  val currentDist = currentPosReg.dist2(startPosReg)
+  val currentDist = currentPosReg.dist2Fp(startPosReg)
 
   io.out.bits.pos := currentPosReg
   io.out.bits.dist := currentDist
@@ -114,8 +115,8 @@ class Raycaster(maxSteps: Int = 12) extends Module {
         startPosReg := io.in.bits.start
         stepReg := 0.U
 
-        val hRayDist = hRay0.dist2(io.in.bits.start)
-        val vRayDist = vRay0.dist2(io.in.bits.start)
+        val hRayDist = hRay0.dist2Fp(io.in.bits.start)
+        val vRayDist = vRay0.dist2Fp(io.in.bits.start)
         currentPosReg := Mux(hRayDist < vRayDist, hRay0, vRay0)
 
         state := S.step
@@ -127,8 +128,8 @@ class Raycaster(maxSteps: Int = 12) extends Module {
         state := S.done
 
       }.elsewhen(stepReg < maxSteps.U) {
-        val hRayDist = hRayReg.dist2(startPosReg)
-        val vRayDist = vRayReg.dist2(startPosReg)
+        val hRayDist = hRayReg.dist2Fp(startPosReg)
+        val vRayDist = vRayReg.dist2Fp(startPosReg)
         val hRayShortest = hRayDist < vRayDist
 
         val hRayNext = Mux(hRayShortest, hRayReg + hRayDeltaReg, hRayReg)
@@ -136,8 +137,8 @@ class Raycaster(maxSteps: Int = 12) extends Module {
         hRayReg := hRayNext
         vRayReg := vRayNext
 
-        val nextHdist = hRayNext.dist2(startPosReg)
-        val nextVdist = vRayNext.dist2(startPosReg)
+        val nextHdist = hRayNext.dist2Fp(startPosReg)
+        val nextVdist = vRayNext.dist2Fp(startPosReg)
 
         currentPosReg := Mux(nextHdist < nextVdist, hRayNext, vRayNext)
 

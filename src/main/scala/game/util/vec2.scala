@@ -3,24 +3,35 @@ package gameEngine.vec2
 import chisel3._
 import gameEngine.fixed.FixedPointUtils._
 
-object Vec2 {
-  def apply(x: SInt, y: SInt): Vec2 = {
-    val v = Wire(new Vec2())
-    v.x := x; v.y := y
-    v
-  }
+class Vec2[T <: Data](gen: T) extends Bundle {
+  val x, y = gen.cloneType
+
 }
 
-class Vec2 extends Bundle {
-  val x, y = SInt(32.W)
-
-  def +(that: Vec2): Vec2 = {
-    Vec2(this.x + that.x, this.y + that.y)
+object Vec2 {
+  def apply[T <: Data](x: T, y: T): Vec2[T] = {
+    val w = Wire(new Vec2(x.cloneType))
+    w.x := x
+    w.y := y
+    w
   }
 
-  def dist2(that: Vec2) =
-    (
-      (this.x - that.x).fpMul(this.x - that.x)
-        +& (this.y - that.y).fpMul(this.y - that.y)
-    )
+  implicit class Vec2SIntOps(val a: Vec2[SInt]) {
+    def +(b: Vec2[SInt]): Vec2[SInt] = {
+      Vec2(a.x + b.x, a.y + b.y)
+    }
+
+    def dist2Fp(b: Vec2[SInt]): SInt = {
+      val dX = a.x - b.x
+      val dY = a.y - b.y
+      dX.fpMul(dX) +& dY.fpMul(dY)
+    }
+  }
+
+  implicit class Vec2UIntOps(val a: Vec2[UInt]) {
+    def +(b: Vec2[UInt]): Vec2[UInt] = {
+      Vec2(a.x + b.x, a.y + b.y)
+    }
+  }
+
 }
