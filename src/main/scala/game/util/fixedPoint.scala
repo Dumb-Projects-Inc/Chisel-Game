@@ -7,6 +7,12 @@ object FixedPointUtils {
   val width = 32
   val frac = 16
 
+  val MAX = ((BigInt(1) << (width - 1)) - 1).S(width.W)
+  val MIN = (-(BigInt(1) << (width - 1))).S(width.W)
+
+  val maxDouble = ((BigInt(1) << (width - 1)) - 1).toDouble / (1 << frac)
+  val minDouble = (-(BigInt(1) << (width - 1))).toDouble / (1 << frac)
+
   def toFP(x: Double): SInt = {
     val raw = BigInt((x * (1 << frac)).round)
     raw.S(width.W)
@@ -17,6 +23,7 @@ object FixedPointUtils {
 
   implicit class RichFP(val self: SInt) {
 
+    // Saturated multiplication
     def fpMul(that: SInt): SInt = {
       require(
         self.getWidth == width,
@@ -26,8 +33,21 @@ object FixedPointUtils {
         that.getWidth == width,
         s"fpMul: right operand width ${that.getWidth} != expected $width"
       )
-      val product = (self * that) >> frac
-      product.asTypeOf(self)
+
+      val fullProd = self * that
+      val shifted = fullProd >> frac
+      val saturated =
+        Mux(
+          shifted > MAX,
+          MAX,
+          Mux(shifted < MIN, MIN, shifted(width - 1, 0).asSInt)
+        )
+
+      require(
+        saturated.getWidth == width
+      )
+      saturated
+
     }
 
     def fpFloor: SInt = {
@@ -35,16 +55,27 @@ object FixedPointUtils {
         self.getWidth == width,
         s"fpFloor: operand width ${self.getWidth} != expected $width"
       )
-      self >> frac
+      val mask = (~((BigInt(1) << frac) - 1)).S(width.W)
+      self & mask
+
     }
 
-    def fpFrac: UInt = {
+    def fpCeil: SInt = {
+      require(
+        self.getWidth == width,
+        s"fpCeil: operand width ${self.getWidth} != expected $width"
+      )
+      Mux(self.fpFrac === toFP(0.0), self, self.fpFloor + toFP(1.0))
+    }
+
+    def fpFrac: SInt = {
       require(
         self.getWidth == width,
         s"fpFrac: operand width ${self.getWidth} != expected $width"
       )
-      val mask = (BigInt(1) << frac) - 1
-      (self & mask.S(width.W)).asUInt
+      val mask = ((BigInt(1) << frac) - 1).S(width.W)
+      val absVal = Mux(self >= 0.S, self, -self)
+      absVal & mask
     }
 
     def toDouble: Double =

@@ -8,14 +8,16 @@ import gameEngine.fixed.FixedPointUtils._
 class FixedPointALU extends Module {
   val io = IO(new Bundle {
     val x, y = Input(SInt(width.W))
-    val sum = Output(SInt(width.W))
-    val diff = Output(SInt(width.W))
-    val prod = Output(SInt(width.W))
+    val sum, diff, prod, floor, ceil, fracPart = Output(SInt(width.W))
   })
 
   io.sum := io.x + io.y
   io.diff := io.x - io.y
   io.prod := io.x.fpMul(io.y)
+
+  io.floor := io.x.fpFloor
+  io.ceil := io.x.fpCeil
+  io.fracPart := io.x.fpFrac
 }
 
 class FixedPointALUSpec extends AnyFlatSpec {
@@ -76,7 +78,16 @@ class FixedPointALUSpec extends AnyFlatSpec {
       (1.5, 1.5, 2.25),
       (-1.0, 3.5, -3.5),
       (-1.5, -2.0, 3.0),
-      (0.5, -0.5, -0.25)
+      (0.5, -0.5, -0.25),
+      (0.5, 0.5, 0.25),
+      (-1.5, 1.0, -1.5),
+      (1.25, 2.00, 2.50),
+
+      // positive overflow
+      (maxDouble, 2.0, maxDouble),
+
+      // negative overflow
+      (minDouble, 2.0, minDouble)
     )
 
     withDut { dut =>
@@ -88,12 +99,69 @@ class FixedPointALUSpec extends AnyFlatSpec {
       }
     }
   }
+
+  it should "compute floor, ceil and frac correctly" in {
+    val cases = Seq(
+      (2.75, 2.0),
+      (2.00, 2.0), // exact integer
+      (-2.25, -3.0),
+      (-2.00, -2.0),
+      (0.99, 0.0),
+      (-0.01, -1.0),
+      (-2.7, -3.0)
+    )
+    withDut { dut =>
+      for ((in, expected) <- cases) {
+        dut.io.x.poke(toRaw(in))
+        dut.clock.step()
+        dut.io.floor.expect(toRaw(expected))
+      }
+    }
+  }
+
+  it should "compute ceil correctly" in {
+    val cases = Seq(
+      (2.75, 3.0),
+      (2.00, 2.0), // no bump for exact integer
+      (-2.25, -2.0),
+      (-2.00, -2.0),
+      (0.01, 1.0),
+      (-0.99, 0.0),
+      (-2.7, -2.0)
+    )
+    withDut { dut =>
+      for ((in, expected) <- cases) {
+        dut.io.x.poke(toRaw(in))
+        dut.clock.step()
+        dut.io.ceil.expect(toRaw(expected))
+      }
+    }
+  }
+
+  it should "extract fractional part correctly" in {
+    val cases = Seq(
+      (2.75, 0.75),
+      (2.00, 0.00),
+      (-1.25, 0.25),
+      (-2.00, 0.00),
+      (0.50, 0.50),
+      (-0.50, 0.50) // fracPart is magnitude only
+    )
+    withDut { dut =>
+      for ((in, expectedFrac) <- cases) {
+        dut.io.x.poke(toRaw(in))
+        dut.clock.step()
+        dut.io.fracPart.expect(toRaw(expectedFrac))
+      }
+    }
+  }
+
 }
 
 class FixedPointUtilsSpec extends AnyFlatSpec {
-  behavior of "FixedPointUtils.toFP"
+  behavior of "FixedPointUtils"
 
-  "toFP" should "convert various doubles correctly" in {
+  it should "convert various doubles correctly" in {
     val cases = Seq(
       (1.0, BigInt(1 << frac)),
       (1.5, BigInt((1.5 * (1 << frac)).round)),
@@ -122,4 +190,5 @@ class FixedPointUtilsSpec extends AnyFlatSpec {
     assert(lit1.litValue == BigInt(32768))
     assert(lit2.litValue == BigInt(-32768))
   }
+
 }
