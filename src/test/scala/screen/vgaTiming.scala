@@ -9,7 +9,7 @@ class VGATimingSpec extends AnyFlatSpec {
   behavior of "VGATiming"
   it should "output correct hsync and vsync" in {
     simulate(new VGATiming) { dut =>
-      //reset
+      // reset
       dut.reset.poke(true.B)
       dut.clock.step(1)
       dut.reset.poke(false.B)

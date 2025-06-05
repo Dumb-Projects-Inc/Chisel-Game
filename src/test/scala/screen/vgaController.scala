@@ -10,7 +10,7 @@ class VGAControllerSpec extends AnyFlatSpec {
   it should "output correct x and y" in {
     simulate(new VGAController(noBlackBox = true)) { dut =>
       // NOTE: The simulation time is not accurate, as the clock is not running at the correct frequency.
-      //reset
+      // reset
       dut.reset.poke(true.B)
       dut.clock.step(1)
       dut.reset.poke(false.B)
@@ -18,7 +18,7 @@ class VGAControllerSpec extends AnyFlatSpec {
       dut.io.x.expect(0.U)
       dut.io.y.expect(0.U)
 
-      //TODO: FIX y coordinates
+      // TODO: FIX y coordinates
       // Step until x changes
       /* var xClocks = 0
       while (dut.io.x.peek().litValue == 0) {
@@ -44,7 +44,7 @@ class VGAControllerSpec extends AnyFlatSpec {
 
   it should "output correct colors from input" in {
     simulate(new VGAController(noBlackBox = true)) { dut =>
-      //reset
+      // reset
       dut.reset.poke(true.B)
       dut.clock.step(1)
       dut.reset.poke(false.B)
@@ -57,7 +57,7 @@ class VGAControllerSpec extends AnyFlatSpec {
       // Set pixel color to white
       dut.io.pixel.poke("b111111111111".U)
 
-      //step until visible is true
+      // step until visible is true
       while (dut.io.x.peek().litValue == 0) {
         dut.clock.step(1)
       }
