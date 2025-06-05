@@ -1,4 +1,4 @@
-package gameEngine.screen.raycast
+package gameEngine.raycast
 
 import chisel3._
 import chisel3.util._

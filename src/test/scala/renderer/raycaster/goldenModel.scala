@@ -1,4 +1,4 @@
-package gameEngine.screen.raycast
+package gameEngine.raycast
 
 import org.scalatest.flatspec.AnyFlatSpec
 import gameEngine.fixed.FixedPointUtils._

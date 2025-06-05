@@ -1,10 +1,12 @@
-package gameEngine.screen.raycast
+package gameEngine.raycast
 
 import chisel3._
 import chisel3.simulator.scalatest.ChiselSim
 import org.scalatest.flatspec.AnyFlatSpec
-import gameEngine.fixed.FixedPointUtils._
 import org.scalatest.matchers.should._
+
+import gameEngine.fixed.FixedPointUtils._
+import gameEngine.vec2._
 
 class RaycasterSpec extends AnyFlatSpec with ChiselSim with Matchers {
   type Test = (Vec2D, Double, Int)

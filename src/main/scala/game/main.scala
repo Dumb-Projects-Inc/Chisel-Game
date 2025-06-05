@@ -16,16 +16,21 @@ class Engine extends Module {
 
   val sprite = Module(new ImageSprite("./smiley-64.png", 64, 64))
   val controller = Module(new VGAController)
+  val rainbow = Module(new RainbowRenderer)
 
   val visible =
     controller.io.x < 64.U && controller.io.y < 64.U && !sprite.io.transparent
 
   sprite.io.x := controller.io.x
   sprite.io.y := controller.io.y
+
+  rainbow.io.x := controller.io.x
+  rainbow.io.y := controller.io.y
+
   controller.io.pixel := Mux(
     visible,
     sprite.io.r ## sprite.io.g ## sprite.io.b,
-    "0f0".U
+    rainbow.io.resultPixel
   )
 
   io.vga := controller.io.vga
