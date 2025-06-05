@@ -22,3 +22,13 @@ lazy val root = (project in file("."))
       "org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full
     )
   )
+
+lazy val docs = project
+  .in(file("Chisel-Game-docs"))
+  .dependsOn(root)
+  .enablePlugins(MdocPlugin)
+  .settings(
+    mdocVariables := Map(
+      "VERSION" -> version.value
+    )
+  )

@@ -1,10 +1,8 @@
 package gameEngine
 
 import chisel3._
-import chisel3.util.log2Ceil
 import chisel3.stage.ChiselGeneratorAnnotation
 import circt.stage.{ChiselStage, FirtoolOption}
-
 import gameEngine.screen._
 
 class Engine extends Module {
@@ -12,51 +10,34 @@ class Engine extends Module {
     val vga = new VGAInterface
   })
 
-  val rdAddr = WireInit(0.U(log2Ceil(1024).W))
+  val specs = Seq(
+    SpriteSpec("src/main/resources/smiley-64.png", 64, 64),
+    SpriteSpec("src/main/resources/finger-48.png", 48, 48),
+    SpriteSpec("src/main/resources/DoomUI-640-70.png", 640, 70)
+  )
+  val posX = RegInit(VecInit(Seq(0.U(10.W), 100.U(10.W), 0.U(10.W))))
+  val posY = RegInit(VecInit(Seq(0.U(10.W),  50.U(10.W), 410.U(10.W))))
 
-  val linebuffer = Module(new LineBuffer)
-  linebuffer.io.wrAddr := 0.U
-  linebuffer.io.wrData := DontCare
-  linebuffer.io.address := rdAddr
-  linebuffer.io.switch := false.B
-  val pixelReg = linebuffer.io.data
-
-  // Init framebuffer with a pattern
-  // in a state machine
-
-  val init = RegInit(0.U(32.W))
-  val doneRender = RegInit(false.B)
-  when(!doneRender) {
-    when(init < 640.U) {
-      linebuffer.io.wrAddr := init(11, 0)
-      linebuffer.io.wrData := init(11, 0)
-      init := init + 1.U
-    }.otherwise {
-      linebuffer.io.wrAddr := 0.U
-      linebuffer.io.switch := true.B
-      doneRender := true.B
-    }
-  }.otherwise {
-    linebuffer.io.switch := false.B
+  val counter = RegInit(0.U(26.W))
+  counter := counter + 1.U
+  when(counter === (1_000_000 - 1).U) {
+    counter := 0.U
+    posX(1) := Mux(posX(1) === 0.U, 100.U, posX(1) - 1.U)
   }
+  val vgaCtrl = Module(new VGASpriteController(specs))
 
-  val controller = Module(new VGAController)
+  io.vga <> vgaCtrl.io.vga
 
-  rdAddr := controller.io.rdAddr
-  controller.io.pixel := pixelReg
-  io.vga := controller.io.vga
-
+  vgaCtrl.io.pos.x := posX
+  vgaCtrl.io.pos.y := posY
 }
 
 object gameEngineMain {
   def main(args: Array[String]): Unit = {
-    // Splitting files is expected, and the blackbox will generate syntax errors if not split
     (new ChiselStage).execute(
       Array(
-        "--target",
-        "systemverilog",
-        "--target-dir",
-        "generated",
+        "--target",     "systemverilog",
+        "--target-dir", "generated",
         "--split-verilog"
       ),
       Seq(
@@ -64,6 +45,5 @@ object gameEngineMain {
         FirtoolOption("--disable-all-randomization")
       )
     )
-
   }
 }

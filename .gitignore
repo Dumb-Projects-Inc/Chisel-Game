@@ -19,5 +19,6 @@ hs_err_pid*
 vivado/Game_Engine
 generated/
 vivado-project
+vivado/vivado_Chisel-game/
 
 .direnv
