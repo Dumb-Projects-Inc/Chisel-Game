@@ -17,14 +17,25 @@ class Engine extends Module {
   val sprite = Module(new SpriteEntity("./smiley-64.png", 10))
   val controller = Module(new VGAController)
   val rainbow = Module(new RainbowRenderer)
+  val counter = RegInit(0.U(26.W))
 
 
   sprite.io.in.screen.x := controller.io.x
   sprite.io.in.screen.y := controller.io.y
 
   sprite.io.in.pos.wrEn := true.B
-  sprite.io.in.pos.x := 100.U
-  sprite.io.in.pos.y := 100.U
+  val posX = RegInit(100.U(10.W))
+  val posY = RegInit(100.U(10.W))
+
+  counter := counter + 1.U
+  when(counter === (1_000_000 - 1).U) {
+    counter := 0.U
+    posX := Mux(posX === 0.U, 100.U, posX - 1.U)
+    posY := Mux(posY === 0.U, 100.U, posY - 1.U)
+  }
+
+  sprite.io.in.pos.x := posX
+  sprite.io.in.pos.y := posY
 
   sprite.io.in.acceleration.wrEn := false.B
   sprite.io.in.speed.wrEn := false.B
