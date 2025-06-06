@@ -34,12 +34,12 @@ class SmileyEntity(width: Int) extends Module {
   sprite.io.in.screen.x := io.screen.x
   sprite.io.in.screen.y := io.screen.y
 
-  sprite.io.in.pos.wrEn := true.B // temp
+  sprite.io.in.pos.wrEn.get := true.B // temp
   sprite.io.in.pos.x := posX
   sprite.io.in.pos.y := posY
 
-  sprite.io.in.speed.wrEn := false.B
-  sprite.io.in.acceleration.wrEn := false.B
+  sprite.io.in.speed.wrEn.get := false.B
+  sprite.io.in.acceleration.wrEn.get := false.B
   sprite.io.in.speed.x := DontCare
   sprite.io.in.speed.y := DontCare
   sprite.io.in.acceleration.x := DontCare
