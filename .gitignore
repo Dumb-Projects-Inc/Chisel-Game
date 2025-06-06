@@ -21,3 +21,5 @@ vivado-project
 
 .direnv
 docusaurus/
+
+*metals.sbt
