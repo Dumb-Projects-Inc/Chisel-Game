@@ -11,19 +11,6 @@ import gameEngine.renderer.RainbowRenderer
 import gameEngine.entity.SpriteEntity
 import gameEngine.entity.library.SmileyEntity
 
-class Vec2t[T <: Data](gen: T) extends Bundle {
-  val x, y = gen.cloneType
-}
-
-object Vec2t {
-  def apply[T <: Data](x: T, y: T): Vec2t[T] = {
-    val w = Wire(new Vec2t(x.cloneType))
-    w.x := x
-    w.y := y
-    w
-  }
-}
-
 class Engine extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
