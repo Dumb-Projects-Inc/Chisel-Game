@@ -2,37 +2,69 @@ package gameEngine
 
 import chisel3._
 import chisel3.util.log2Ceil
+import chisel3.util.PriorityMux
 import chisel3.stage.ChiselGeneratorAnnotation
 import circt.stage.{ChiselStage, FirtoolOption}
 
 import gameEngine.screen._
 import gameEngine.renderer.RainbowRenderer
-import gameEngine.sprite.ImageSprite
-
-class Vec2t[T <: Data](gen: T) extends Bundle {
-  val x, y = gen.cloneType
-}
-
-object Vec2t {
-  def apply[T <: Data](x: T, y: T): Vec2t[T] = {
-    val w = Wire(new Vec2t(x.cloneType))
-    w.x := x
-    w.y := y
-    w
-  }
-}
+import gameEngine.entity.SpriteEntity
+import gameEngine.entity.library.SmileyEntity
 
 class Engine extends Module {
   val io = IO(new Bundle {
-    val x, y = Input(UInt(8.W))
-    val a = Output(new Vec2t(UInt(12.W)))
-    val b = Output(new Vec2t(SInt(12.W)))
+    val vga = new VGAInterface
   })
 
-  val vec = Vec2t(io.x - 5.U, io.y - 2.U)
+  val bob = Module(new SmileyEntity(10))
+  val alice = Module(new SmileyEntity(10))
+  val crazyBob = Module(new SmileyEntity(10))
+  val controller = Module(new VGAController)
+  val rainbow = Module(new RainbowRenderer)
 
-  io.a := vec
-  io.b := Vec2t((io.x + io.x).asSInt, (io.y + io.y).asSInt)
+  bob.io.screen.x := controller.io.x
+  bob.io.screen.y := controller.io.y
+  alice.io.screen.x := controller.io.x
+  alice.io.screen.y := controller.io.y
+  crazyBob.io.screen.x := controller.io.x
+  crazyBob.io.screen.y := controller.io.y
+
+  bob.io.setPos.wrEn := true.B
+  bob.io.setPos.x := 120.U
+  bob.io.setPos.y := 80.U
+
+  alice.io.setPos.wrEn := true.B
+  alice.io.setPos.x := 200.U
+  alice.io.setPos.y := 50.U
+
+  val crazyBobCounter = RegInit(0.U(26.W))
+  val newBobX = RegInit(100.U(10.W))
+  val newBobY = RegInit(100.U(10.W))
+
+  crazyBob.io.setPos.wrEn := true.B
+  crazyBobCounter := crazyBobCounter + 1.U
+  when(crazyBobCounter === (1_000_000 - 1).U) {
+    crazyBobCounter := 0.U
+    newBobX := Mux(newBobX === 0.U, 100.U, newBobX - 1.U)
+    newBobY := Mux(newBobY === 0.U, 100.U, newBobY - 1.U)
+  }
+  crazyBob.io.setPos.x := newBobX
+  crazyBob.io.setPos.y := newBobY
+
+  rainbow.io.x := controller.io.x
+  rainbow.io.y := controller.io.y
+
+  val visVec = VecInit(
+    Seq(bob.io.visible, alice.io.visible, crazyBob.io.visible)
+  )
+  val pixVec = VecInit(Seq(bob.io.pixel, alice.io.pixel, crazyBob.io.pixel))
+
+  val chosenPixel = PriorityMux(visVec.zip(pixVec))
+  val anyVisible = visVec.asUInt.orR
+
+  controller.io.pixel := Mux(anyVisible, chosenPixel, rainbow.io.resultPixel)
+
+  io.vga := controller.io.vga
 
 }
 

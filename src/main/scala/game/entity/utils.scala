@@ -1,4 +1,4 @@
-package gameEngine.sprite
+package gameEngine.entity
 
 import java.io.File
 import javax.imageio.ImageIO

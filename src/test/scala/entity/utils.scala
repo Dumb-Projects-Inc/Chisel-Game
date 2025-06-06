@@ -1,4 +1,4 @@
-package gameEngine.sprite
+package gameEngine.entity
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

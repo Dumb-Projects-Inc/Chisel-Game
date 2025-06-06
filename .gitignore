@@ -20,3 +20,4 @@ generated/
 vivado-project
 
 .direnv
+docusaurus/
