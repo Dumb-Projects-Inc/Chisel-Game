@@ -2,24 +2,25 @@ package gameEngine.entity
 
 import chisel3._
 import chisel3.util._
+import os.write
 
-class IEntity(width: Int) extends Bundle {
+class IEntity(width: Int, writeable: Boolean = false) extends Bundle {
   val screen = new Bundle {
     val x = UInt(width.W)
     val y = UInt(width.W)
   }
   val pos = new Bundle {
-    val wrEn = Bool()
+    val wrEn = if (writeable) Some(new Bool()) else None
     val x = UInt(width.W)
     val y = UInt(width.W)
   }
   val speed = new Bundle {
-    val wrEn = Bool()
+    val wrEn = if (writeable) Some(new Bool()) else None
     val x = SInt((width + 1).W)
     val y = SInt((width + 1).W)
   }
   val acceleration = new Bundle {
-    val wrEn = Bool()
+    val wrEn = if (writeable) Some(new Bool()) else None
     val x = SInt((width + 1).W)
     val y = SInt((width + 1).W)
   }
@@ -27,7 +28,7 @@ class IEntity(width: Int) extends Bundle {
 
 class Entity(width: Int) extends Module {
   val io = IO(new Bundle {
-    val in = Input(new IEntity(width))
+    val in = Input(new IEntity(width, writeable = true))
     val out = Output(new IEntity(width))
     val visible = Output(Bool())
     val pixel = Output(UInt(12.W))
@@ -35,26 +36,42 @@ class Entity(width: Int) extends Module {
 
   val posRegx = RegInit(0.U(width.W))
   val posRegy = RegInit(0.U(width.W))
-  
+
   val speedRegx = RegInit(0.S(width.W))
   val speedRegy = RegInit(0.S(width.W))
   val accelerationRegx = RegInit(0.S(width.W))
   val accelerationRegy = RegInit(0.S(width.W))
 
-  posRegx := Mux(io.in.pos.wrEn, io.in.pos.x, (posRegx.asSInt + speedRegx).asUInt)
-  posRegy := Mux(io.in.pos.wrEn, io.in.pos.y, (posRegy.asSInt + speedRegy).asUInt)
+  posRegx := Mux(
+    io.in.pos.wrEn.getOrElse(false.B),
+    io.in.pos.x,
+    (posRegx.asSInt + speedRegx).asUInt
+  )
+  posRegy := Mux(
+    io.in.pos.wrEn.getOrElse(false.B),
+    io.in.pos.y,
+    (posRegy.asSInt + speedRegy).asUInt
+  )
 
-  speedRegx := Mux(io.in.speed.wrEn, io.in.speed.x, speedRegx + accelerationRegx)
-  speedRegy := Mux(io.in.speed.wrEn, io.in.speed.y, speedRegy + accelerationRegy)
+  speedRegx := Mux(
+    io.in.speed.wrEn.getOrElse(false.B),
+    io.in.speed.x,
+    speedRegx + accelerationRegx
+  )
+  speedRegy := Mux(
+    io.in.speed.wrEn.getOrElse(false.B),
+    io.in.speed.y,
+    speedRegy + accelerationRegy
+  )
 
   accelerationRegx := Mux(
-    io.in.acceleration.wrEn,
+    io.in.acceleration.wrEn.getOrElse(false.B),
     io.in.acceleration.x,
     accelerationRegx
   )
 
   accelerationRegy := Mux(
-    io.in.acceleration.wrEn,
+    io.in.acceleration.wrEn.getOrElse(false.B),
     io.in.acceleration.y,
     accelerationRegy
   )
@@ -66,11 +83,6 @@ class Entity(width: Int) extends Module {
   io.out.speed.y := speedRegy
   io.out.acceleration.x := accelerationRegx
   io.out.acceleration.y := accelerationRegy
-
-  io.out.pos.wrEn := false.B
-  io.out.speed.wrEn := false.B
-  io.out.acceleration.wrEn := false.B
-
 }
 
 class SpriteEntity(filename: String, width: Int) extends Entity(width) {
