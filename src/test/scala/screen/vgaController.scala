@@ -8,7 +8,7 @@ import chisel3.simulator.EphemeralSimulator._
 class VGAControllerSpec extends AnyFlatSpec {
   behavior of "VGAController"
   it should "output correct x and y" in {
-    simulate(new VGAController(noBlackBox = true)) { dut =>
+    simulate(new VGAController) { dut =>
       // NOTE: The simulation time is not accurate, as the clock is not running at the correct frequency.
       // reset
       dut.reset.poke(true.B)
@@ -43,7 +43,7 @@ class VGAControllerSpec extends AnyFlatSpec {
   }
 
   it should "output correct colors from input" in {
-    simulate(new VGAController(noBlackBox = true)) { dut =>
+    simulate(new VGAController) { dut =>
       // reset
       dut.reset.poke(true.B)
       dut.clock.step(1)

@@ -85,7 +85,6 @@ class Entity(width: Int) extends Module {
   io.out.acceleration.y := accelerationRegy
 }
 
-
 class SpriteEntity(filename: String, width: Int) extends Entity(width) {
   val sprite = Module(new ImageSprite(filename, 64, 64))
 

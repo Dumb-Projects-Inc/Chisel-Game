@@ -28,23 +28,12 @@ object VgaConfigs {
     backPorchH = 48,
     backPorchV = 33
   )
-  val vga1280x1024 = VgaConfig(
-    visibleAreaH = 1280,
-    visibleAreaV = 1024,
-    frontPorchH = 48,
-    frontPorchV = 1,
-    syncPulseH = 112,
-    syncPulseV = 3,
-    backPorchH = 248,
-    backPorchV = 38
-  )
+
 }
 
-/** Chisel module that generates VGA timing signals.
+/** Chisel module that generates VGA timing signals for 640x480x60hz
   *
-  * Important: This module assumes a clock rate corresponding with the
-  * corresponding pixel clock for configuration given. For example, the default
-  * value of vga640x480 expects this module to be run at 25.175Mhz
+  * IMPORTANT: Expects a 100mhz clock
   *
   * The purpose of this module is to generate the necessary hSync and vSync
   * signal, to be plugged directly to the vga port. It also outputs a x,y
@@ -53,13 +42,8 @@ object VgaConfigs {
   * indicating if the current x,y coordinate pair is on the screen. The pixelX,
   * pixelY and visible outputs should be used by an outside circuit to drive the
   * r,g,b pins of the vga screen.
-  *
-  * @param config
-  *   VGA configuration parameters; defaults to the 640x480 configuration.
   */
-class VGATiming(
-    config: VgaConfig = VgaConfigs.vga640x480
-) extends Module() {
+class VGATiming(config: VgaConfig = VgaConfigs.vga640x480) extends Module {
   import config._
   val io = IO(new Bundle {
     val hSync, vSync, visible = Output(Bool())
@@ -67,34 +51,22 @@ class VGATiming(
       Output(UInt(log2Ceil(math.max(visibleAreaH, visibleAreaV)).W))
   })
 
-  val totalH = frontPorchH + visibleAreaH + syncPulseH + backPorchH - 1
-  val startHSync = frontPorchH + visibleAreaH - 1
-  val endHSync = startHSync + syncPulseH - 1
+  val (_, tick) = Counter(true.B, 4)
 
-  val totalV = frontPorchV + visibleAreaV + syncPulseV + backPorchV - 1
-  val startVSync = frontPorchV + visibleAreaV - 1
-  val endVSync = startVSync + syncPulseV - 1
+  val totalH = visibleAreaH + frontPorchH + syncPulseH + backPorchH
+  val startHSync = visibleAreaH + frontPorchH
+  val endHSync = startHSync + syncPulseH
 
-  val hCounter = RegInit(0.U(log2Ceil(totalH).W))
-  val vCounter = RegInit(0.U(log2Ceil(totalV).W))
+  val totalV = visibleAreaV + frontPorchV + syncPulseV + backPorchV
+  val startVSync = visibleAreaV + frontPorchV
+  val endVSync = startVSync + syncPulseV
 
-  when(hCounter === (totalH).U) {
-    hCounter := 0.U
-    when(vCounter === (totalV).U) {
-      vCounter := 0.U
-    }.otherwise {
-      vCounter := vCounter + 1.U
-    }
-  }.otherwise {
-    hCounter := hCounter + 1.U
-  }
+  val (hCounter, hCounterWrap) = Counter(tick, totalH)
+  val (vCounter, vCounterWrap) = Counter(hCounterWrap, totalV)
 
-  val hSync = Wire(Bool())
-  val vSync = Wire(Bool())
-  val visible = Wire(Bool())
-  hSync := (hCounter >= startHSync.U) && (hCounter <= endHSync.U)
-  vSync := (vCounter >= startVSync.U) && (vCounter <= endVSync.U)
-  visible := (hCounter < visibleAreaH.U) && (vCounter < visibleAreaV.U)
+  val hSync = (hCounter >= startHSync.U) && (hCounter < endHSync.U)
+  val vSync = (vCounter >= startVSync.U) && (vCounter < endVSync.U)
+  val visible = (hCounter < visibleAreaH.U) && (vCounter < visibleAreaV.U)
 
   io.hSync := hSync
   io.vSync := vSync

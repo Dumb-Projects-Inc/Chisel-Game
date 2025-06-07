@@ -2,69 +2,34 @@ package gameEngine.screen
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.Analog
 
 import gameEngine.util._
 
-class VGAInterface(i2cEn: Boolean = false) extends Bundle {
+class VGAInterface extends Bundle {
   val vsync = Output(Bool())
   val hsync = Output(Bool())
   val red = Output(UInt(4.W))
   val green = Output(UInt(4.W))
   val blue = Output(UInt(4.W))
-
-  // Data pins for I2C in vga (optional)
-  // Note: The basys 3 board does not support I2C in the built-in VGA port
-  // Extension board should make this possible.
-  val i2c = if (i2cEn) Some(new I2CInterface) else None
 }
 
-class VGAController(i2cEn: Boolean = false, noBlackBox: Boolean = false)
-    extends Module {
+class VGAController extends Module {
   val io = IO(new Bundle {
     val pixel = Input(UInt(12.W))
     val x = Output(UInt(log2Ceil(1024).W))
     val y = Output(UInt(log2Ceil(1024).W))
-    val vga = new VGAInterface(i2cEn)
+    val vga = new VGAInterface
   })
 
-  val visible = WireDefault(false.B)
-  val xPos = Wire(UInt(10.W))
-  val yPos = Wire(UInt(10.W))
-  val pixel = WireInit("b111111111111".U) // Initialize pixel to white
-  pixel := io.pixel
+  val timing = Module(new VGATiming)
+  val visible = timing.io.visible
+  io.vga.hsync := timing.io.hSync
+  io.vga.vsync := timing.io.vSync
 
-  val clk25MHz = Wire(Clock())
-  val locked = Wire(Bool())
+  io.vga.red := Mux(visible, io.pixel(11, 8), 0.U(4.W))
+  io.vga.green := Mux(visible, io.pixel(7, 4), 0.U(4.W))
+  io.vga.blue := Mux(visible, io.pixel(3, 0), 0.U(4.W))
 
-  // Enable simulation without IP
-  if (!noBlackBox) {
-    // $COVERAGE-OFF$
-    val pll = Module(new PLLBlackBox)
-    pll.io.clock := clock
-    pll.io.reset := reset
-    clk25MHz := pll.io.clk25MHz
-    locked := pll.io.locked
-    // $COVERAGE-ON$
-  } else {
-    clk25MHz := clock
-    locked := true.B
-  }
-
-  withClockAndReset(clk25MHz, !locked) {
-    val timing = Module(new VGATiming)
-    io.vga.hsync := timing.io.hSync
-    io.vga.vsync := timing.io.vSync
-    visible := timing.io.visible
-    xPos := timing.io.pixelX
-    yPos := timing.io.pixelY
-
-    // Generate RGB signals (example: simple color bars)
-    io.vga.red := Mux(visible, pixel(11, 8), 0.U(4.W))
-    io.vga.green := Mux(visible, pixel(7, 4), 0.U(4.W))
-    io.vga.blue := Mux(visible, pixel(3, 0), 0.U(4.W))
-
-    io.x := xPos
-    io.y := yPos
-  }
+  io.x := timing.io.pixelX
+  io.y := timing.io.pixelY
 }
