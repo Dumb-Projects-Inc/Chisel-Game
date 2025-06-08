@@ -10,6 +10,23 @@ import circt.stage.{ChiselStage, FirtoolOption}
 
 import gameEngine.screen.VGATiming
 
+/** Another way of interacting with the screen
+  *
+  * This method utilized double buffering. This takes a lot of space, so a color
+  * palette is also used to save space
+  *
+  * A vga output is generated based on the contents of the first buffer. Writers
+  * write to the second buffer. When a new frame begins, buffers are only
+  * switched if the valid signal is asserted. This stops unfinished frames from
+  * ending up on the screen.
+  *
+  * A newFrame output, which pulses when we are finished writing a frame, is
+  * also provided for convinience
+  *
+  * @param palette
+  *   The color palette to use Consists of a list of RGB values. The buffers
+  *   store indexes to this list. Writers must know of this color palette
+  */
 class DualPaletteFrameBuffer(
     palette: Seq[UInt]
 ) extends Module {
