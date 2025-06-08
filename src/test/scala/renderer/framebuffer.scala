@@ -5,11 +5,11 @@ import org.scalatest.matchers.should.Matchers
 import chisel3._
 import chisel3.simulator.scalatest.ChiselSim
 
-class FrameBufferSpec extends AnyFunSpec with ChiselSim with Matchers {
-  describe("FrameBuffer") {
+class BufferSpec extends AnyFunSpec with ChiselSim with Matchers {
+  describe("Buffer") {
 
     it("should read back written value") {
-      simulate(new FrameBuffer(16, 16, 2)) { dut =>
+      simulate(new Buffer(16, 16, 2)) { dut =>
         dut.io.enable.poke(true.B)
         dut.io.write.poke(true.B)
         dut.io.x.poke(5.U)
@@ -27,7 +27,7 @@ class FrameBufferSpec extends AnyFunSpec with ChiselSim with Matchers {
     }
 
     it("should only update its own index") {
-      simulate(new FrameBuffer(16, 16, 8)) { dut =>
+      simulate(new Buffer(16, 16, 8)) { dut =>
         dut.io.enable.poke(true.B)
         dut.io.write.poke(true.B)
         for (i <- 0 to 15; j <- 0 to 15) {

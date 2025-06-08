@@ -12,7 +12,7 @@ import gameEngine.entity.SpriteEntity
 import gameEngine.entity.library.SmileyEntity
 import gameEngine.entity.library.WallEntity
 import gameEngine.vec2.Vec2
-import gameEngine.framebuffer.FrameBuffer
+import gameEngine.framebuffer.Buffer
 import chisel3.util.MuxCase
 
 class Engine extends Module {
@@ -23,7 +23,7 @@ class Engine extends Module {
   val controller = Module(new VGAController)
   io.vga := controller.io.vga
 
-  val mem = Module(new FrameBuffer(320, 240, 4, Some("framebuffer_init.mem")))
+  val mem = Module(new Buffer(320, 240, 4, Some("framebuffer_init.mem")))
 
   mem.io.write := false.B
   mem.io.enable := true.B
