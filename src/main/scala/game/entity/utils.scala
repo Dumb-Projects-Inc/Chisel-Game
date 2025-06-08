@@ -2,6 +2,8 @@ package gameEngine.entity
 
 import java.io.File
 import javax.imageio.ImageIO
+import java.io.BufferedWriter
+import java.io.FileWriter
 
 /** Loads a PNG image from the specified file path and processes its pixel data.
   *
@@ -37,5 +39,34 @@ object SpriteImageUtil {
       BigInt((transparentBit << 12) | (r4 << 8) | (g4 << 4) | b4)
     }).toIndexedSeq
     (pixels, width, height)
+  }
+
+  def pad(s: String, n: Int): String = {
+    if (s.length < n) {
+      pad("0" + s, n)
+    } else {
+      s
+    }
+  }
+  def convertImageToSprite(
+      filepath: String,
+      width: Int,
+      height: Int,
+      outDir: String = s"generated/"
+  ): (String, Int, Int) = {
+    val fullinPath = new File(filepath)
+    val (pixels, imgWidth, imgHeight) = loadPngData(fullinPath.getAbsolutePath)
+    val outFile = new File(
+      s"$outDir/${fullinPath.getName().replace(".png", ".mem")}"
+    )
+    val pixelData = pixels.map { pixel =>
+      f"${pad(pixel.toString(2), 13)}\n"
+    }
+    val writer = new BufferedWriter(new FileWriter(outFile))
+    for (i <- 0 until pixelData.length) {
+      writer.write(pixelData(i))
+    }
+    writer.close()
+    (outFile.getPath(), imgWidth, imgHeight)
   }
 }

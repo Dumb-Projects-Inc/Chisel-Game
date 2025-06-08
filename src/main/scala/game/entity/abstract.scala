@@ -2,6 +2,8 @@ package gameEngine.entity
 
 import chisel3._
 import chisel3.util.log2Ceil
+import chisel3.util.experimental.loadMemoryFromFile
+import firrtl.annotations.MemoryLoadFileType
 
 /** Abstract Sprite module.
   * @param width
@@ -24,18 +26,25 @@ abstract class Sprite(val width: Int, val height: Int) extends Module {
 
 class ImageSprite(filepath: String, width: Int, height: Int)
     extends Sprite(width, height) {
-  val (pixelData, imgWidth, imgHeight) = SpriteImageUtil.loadPngData(filepath)
+  // val (pixelData, imgWidth, imgHeight) = SpriteImageUtil.loadPngData(filepath)
+
+  // Load the pixel data from the file
+  val (spritePath, imgWidth, imgHeight) =
+    SpriteImageUtil.convertImageToSprite(filepath, width, height)
 
   require(
     imgWidth == width && imgHeight == height,
     s"Image dimensions mismatch: expected $width x $height, got $imgWidth x $imgHeight"
   )
 
-  val rom = VecInit.tabulate(height, width) { (row, col) =>
-    pixelData(row * width + col).U(13.W)
-  }
+  val sram = SyncReadMem(width * height, UInt(13.W))
+  loadMemoryFromFile(sram, spritePath, MemoryLoadFileType.Binary)
 
-  val rgb = rom(io.y)(io.x)
+  // val rom = VecInit.tabulate(height, width) { (row, col) =>
+  //  pixelData(row * width + col).U(13.W)
+  // }
+  val flatAddr = (io.y << width.U) + io.x
+  val rgb = RegNext(sram.read(34.U))
   io.r := rgb(11, 8)
   io.g := rgb(7, 4)
   io.b := rgb(3, 0)
