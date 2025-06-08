@@ -4,13 +4,15 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import chisel3._
 import chisel3.simulator.EphemeralSimulator._
+import scala.io.Source
 
 class SpriteImageUtilSpec extends AnyFlatSpec with Matchers {
 
   "SpriteImageUtil.loadPngData" should "correctly load a 3x3 sprite with expected colors" in {
     // test_sprite is is a 3x3 png
-    val filepath = "src/test/resources/test_sprite.png"
-    val (pixels, width, height) = SpriteImageUtil.loadPngData(filepath)
+    val src = getClass.getResource("/test_sprite.png")
+    src should not be null
+    val (pixels, width, height) = SpriteImageUtil.loadPngData(src.getPath)
 
     width shouldEqual 3
     height shouldEqual 3
