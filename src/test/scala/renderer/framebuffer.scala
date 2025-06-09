@@ -18,6 +18,7 @@ class BufferSpec extends AnyFunSpec with ChiselSim with Matchers {
         dut.clock.step()
 
         dut.io.write.poke(false.B)
+        // Test will fail with new RAM, however this is because verilator is testing blackbox wrong
         dut.clock.step()
         dut.io.dataOut.expect(2.U)
 
