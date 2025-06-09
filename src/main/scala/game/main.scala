@@ -9,39 +9,6 @@ import circt.stage.{ChiselStage, FirtoolOption}
 import gameEngine.screen.VGAInterface
 import gameEngine.framebuffer.DualPaletteFrameBuffer
 
-import gameEngine.vec2.Vec2
-import gameEngine.vec2.Vec2._
-
-import gameEngine.entity.library.WallEntity
-
-// TODO:
-// Generer background igennem tilemap
-// - Gem en af hvert tile
-// - gem 2d array som repræsenterer verdenen. Hver index holder en ref til et tile
-// - skal være scrollable
-//
-//
-// Sprite/Entity interface
-// - Entities repræsenterer en ting i spillet. Indeholder:
-//    - interface som gør den renderbar for scene
-//    - interface så spil logik kan interagere med den
-//
-//
-class Scene2D(numColors: Int) extends Module {
-  val io = IO(new Bundle {
-    // Control signal
-    val done = Output(Bool())
-    val next = Input(Bool())
-
-    // Signals used to write to buffer
-    val x = Output(UInt(log2Ceil(320).W))
-    val y = Output(UInt(log2Ceil(240).W))
-    val write = Output(Bool())
-    val paletteOut = Output(UInt(log2Ceil(numColors).W))
-  })
-
-}
-
 class Engine extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
