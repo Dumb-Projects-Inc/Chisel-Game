@@ -13,11 +13,6 @@ package gameEngine.util
 
 import chisel3._
 import chisel3.util.HasBlackBoxResource
-import chisel3.util.experimental.loadMemoryFromFile
-import firrtl.annotations.MemoryLoadFileType
-import chisel3.experimental.annotate
-import firrtl.annotations.mem.{ReadUnderWrite, ReadUnderWriteAnnotation}
-import firrtl.options.Unserializable
 
 // Only works with vivado
 class RamInitSpWf(dWidth: Int, addrWidth: Int, loadFile: String)
