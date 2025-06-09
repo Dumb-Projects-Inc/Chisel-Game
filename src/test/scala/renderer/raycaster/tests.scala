@@ -264,55 +264,60 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim with Matchers {
 
     testsBySteps.foreach { case (steps, testGroup) =>
       simulate(new Raycaster(steps)) { dut =>
+        dut.io.stop.poke(false.B)
         testGroup.foreach { case (pos, angle, _) =>
-          dut.io.stop.poke(false.B)
-          dut.io.in.valid.poke(false.B)
-          dut.io.out.ready.poke(false.B)
+          withClue(
+            f"Test: [${pos.x}%.1f,${pos.y}%.1f] @ $angle%.3f rad x $steps"
+          ) {
+            dut.io.in.valid.poke(false.B)
+            dut.io.out.ready.poke(false.B)
 
-          dut.io.in.bits.start.x.poke(toFP(pos.x))
-          dut.io.in.bits.start.y.poke(toFP(pos.y))
-          dut.io.in.bits.angle.poke(toFP(angle))
-          dut.clock.step()
+            dut.io.in.bits.start.x.poke(toFP(pos.x))
+            dut.io.in.bits.start.y.poke(toFP(pos.y))
+            dut.io.in.bits.angle.poke(toFP(angle))
+            dut.clock.step()
 
-          dut.io.in.ready
-            .expect(true.B, "DUT should be ready to accept new calculations")
+            dut.io.in.ready
+              .expect(true.B, "DUT should be ready to accept new calculations")
 
-          // Start computation
-          dut.io.in.valid.poke(true.B)
-          dut.clock.step()
-          dut.io.in.valid.poke(false.B)
+            // Start computation
+            dut.io.in.valid.poke(true.B)
+            dut.clock.step()
+            dut.io.in.valid.poke(false.B)
 
-          dut.io.in.ready
-            .expect(
-              false.B,
-              "Backpressure should assert when starting new calculation"
-            )
+            dut.io.in.ready
+              .expect(
+                false.B,
+                "Backpressure should assert when starting new calculation"
+              )
 
-          dut.clock.stepUntil(dut.io.out.valid, 1, (steps + 1))
-          dut.io.out.valid.expect(true.B, "Ray should be finished calculating")
+            dut.clock.stepUntil(dut.io.out.valid, 1, (steps + 1))
+            dut.io.out.valid
+              .expect(true.B, "Ray should be finished calculating")
 
-          dut.io.out.ready.poke(true.B)
-          dut.clock.step()
-          dut.io.out.ready.poke(false.B)
+            dut.io.out.ready.poke(true.B)
+            dut.clock.step()
+            dut.io.out.ready.poke(false.B)
 
-          // Validate outputs
-          val got =
-            Vec2D(
-              dut.io.out.bits.pos.x.peek().toDouble,
-              dut.io.out.bits.pos.y.peek().toDouble
-            )
-          val tol = 0.1
+            // Validate outputs
+            val got =
+              Vec2D(
+                dut.io.out.bits.pos.x.peek().toDouble,
+                dut.io.out.bits.pos.y.peek().toDouble
+              )
 
-          val exp = RaycasterGoldenModel.expectedDdaPos(pos, angle, steps)
-          val err = Vec2D(math.abs(got.x - exp.x), math.abs(got.y - exp.y)).norm
-          errSum += err
-          if (err > maxErrCase._2) {
-            maxErrCase = ((pos, angle, steps), err)
+            val gotHitHorizontal =
+              dut.io.out.bits.isHorizontal.peek().litToBoolean
+
+            val exp =
+              RaycasterGoldenModel.expectedDdaPos(pos, angle, steps)
+            val err = math.abs(exp.norm - got.norm)
+            errSum += err
+            if (err > maxErrCase._2) {
+              maxErrCase = ((pos, angle, steps), err)
+            }
+            exp.norm should be(got.norm +- 0.1)
           }
-          assert(
-            err < tol,
-            f"Test failed: [${pos.x}%.1f,${pos.y}%.1f] @ $angle%.3f rad x $steps. Got: (${got.x}%.3f,${got.y}%.3f), expected: (${exp.x}%.3f, ${exp.y}%.3f)"
-          )
         }
       }
     }
@@ -328,6 +333,103 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim with Matchers {
     info(
       f"Average error was: ${errSum / nTests}%.3f"
     )
+  }
+  "Raycaster" should "determine if wall that was hit, was horizontal or vertical" in {
+
+    type Test = (Vec2D, Double, Int, Boolean)
+    val generalTests: Seq[Test] = Seq(
+      (Vec2D(1.5, 1.5), 0.0, 0, false),
+      (Vec2D(1.5, 1.5), math.Pi / 2, 1, true),
+      (Vec2D(1.5, 1.5), math.Pi, 0, false),
+      (Vec2D(1.5, 1.5), 3 * math.Pi / 2, 1, true),
+      (Vec2D(1.5, 1.5), math.Pi / 6, 0, false),
+      (Vec2D(1.5, 1.5), math.Pi / 3, 1, false),
+      (Vec2D(1.5, 1.5), 7 * math.Pi / 6, 0, false),
+      (Vec2D(1.5, 1.5), 4 * math.Pi / 3, 0, true)
+    )
+
+    val edgeCases: Seq[Test] = Seq(
+      // At gridline, exact direction
+      (Vec2D(0, 0), 0.0, 0, false),
+      (Vec2D(0, 0), 0.0, 1, false),
+      (Vec2D(0, 0), math.Pi / 2, 0, true),
+      (Vec2D(0, 0), math.Pi / 2, 1, true),
+      (Vec2D(0, 0), math.Pi, 0, false),
+      (Vec2D(0, 0), math.Pi, 1, false),
+      (Vec2D(0, 0), 3 * math.Pi / 2, 0, true),
+      (Vec2D(0, 0), 3 * math.Pi / 2, 1, true),
+
+      // at gridline, pointing towards corner
+      // note how at the second corner, the order is a bit erratic
+      // this doesnt matter as long as both the hori and verti gridline gets checked
+      (Vec2D(0, 0), math.Pi / 4, 0, false),
+      (Vec2D(0, 0), math.Pi / 4, 1, true),
+      (Vec2D(0, 0), math.Pi / 4, 2, true),
+      (Vec2D(0, 0), math.Pi / 4, 3, false),
+      //
+      (Vec2D(0, 0), 3 * math.Pi / 4, 0, false),
+      (Vec2D(0, 0), 3 * math.Pi / 4, 1, true),
+      (Vec2D(0, 0), 3 * math.Pi / 4, 2, false),
+      (Vec2D(0, 0), 3 * math.Pi / 4, 3, true),
+      //
+      (Vec2D(0, 0), 5 * math.Pi / 4, 0, false),
+      (Vec2D(0, 0), 5 * math.Pi / 4, 1, true),
+      (Vec2D(0, 0), 5 * math.Pi / 4, 2, true),
+      (Vec2D(0, 0), 5 * math.Pi / 4, 3, false),
+      //
+      (Vec2D(0, 0), 7 * math.Pi / 4, 0, false),
+      (Vec2D(0, 0), 7 * math.Pi / 4, 1, true),
+      (Vec2D(0, 0), 7 * math.Pi / 4, 2, false),
+      (Vec2D(0, 0), 7 * math.Pi / 4, 3, true)
+    )
+
+    val tests = (generalTests ++ edgeCases).distinct
+    val testsBySteps = tests.groupBy(_._3).toSeq.sortBy((_._1))
+    testsBySteps.foreach { case (steps, testGroup) =>
+      simulate(new Raycaster(steps)) { dut =>
+        dut.io.stop.poke(false.B)
+        testGroup.foreach { case (pos, angle, _, exp) =>
+          withClue(
+            f"Test: [${pos.x}%.1f,${pos.y}%.1f] @ $angle%.3f rad x $steps: horizontal $exp"
+          ) {
+            dut.io.in.valid.poke(false.B)
+            dut.io.out.ready.poke(false.B)
+
+            dut.io.in.bits.start.x.poke(toFP(pos.x))
+            dut.io.in.bits.start.y.poke(toFP(pos.y))
+            dut.io.in.bits.angle.poke(toFP(angle))
+            dut.clock.step()
+
+            dut.io.in.ready
+              .expect(true.B, "DUT should be ready to accept new calculations")
+
+            // Start computation
+            dut.io.in.valid.poke(true.B)
+            dut.clock.step()
+            dut.io.in.valid.poke(false.B)
+
+            dut.io.in.ready
+              .expect(
+                false.B,
+                "Backpressure should assert when starting new calculation"
+              )
+
+            dut.clock.stepUntil(dut.io.out.valid, 1, (steps + 1))
+
+            dut.io.out.ready.poke(true.B)
+            dut.clock.step()
+            dut.io.out.ready.poke(false.B)
+
+            // Validate outputs
+
+            val gotHitHorizontal =
+              dut.io.out.bits.isHorizontal.peek().litToBoolean
+
+            gotHitHorizontal should be(exp)
+          }
+        }
+      }
+    }
   }
 
 }
