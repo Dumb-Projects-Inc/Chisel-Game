@@ -8,7 +8,8 @@ import gameEngine.vec2.Vec2._
 class WallEntity(numColors: Int, color: Int) extends Module {
   val io = IO(new Bundle {
     val x, y = Input(UInt(9.W)) // Ensure wide enough for 320x240
-    val p1, p2, p3, p4 = Input(new Vec2(UInt(9.W)))
+    val p1, p2 =
+      Input(new Vec2(UInt(9.W))) // x defines x position, y defines height
     val visible = Output(Bool())
     val colorOut = Output(UInt(log2Ceil(numColors).W))
   })
@@ -16,21 +17,56 @@ class WallEntity(numColors: Int, color: Int) extends Module {
   val px = io.x
   val py = io.y
 
-  def cross(a: Vec2[UInt], b: Vec2[UInt]): SInt = {
-    ((b.x.asSInt - a.x.asSInt) * (py.asSInt - a.y.asSInt)) -
-      ((b.y.asSInt - a.y.asSInt) * (px.asSInt - a.x.asSInt))
+  // We know the two lines are vertical, so we can use a simple check
+  val gap1 = (240.U - io.p1.y) >> 1
+  val gap2 = (240.U - io.p2.y) >> 1
+
+  // Largest gap has the smallest line height
+  val largestGap = Mux(io.p1.y < io.p2.y, gap1, gap2)
+  val smallestGap = Mux(io.p1.y > io.p2.y, gap1, gap2)
+
+  val visible = Wire(Bool())
+  visible := false.B // Default to not visible
+  when((px >= io.p1.x) && (px <= io.p2.x)) {
+    // Check as a rectangle first
+    val rectangle = (py >= largestGap) && (py <= 240.U - largestGap)
+    visible := rectangle
+    when(!rectangle) {
+      val xMin = Mux(io.p1.x < io.p2.x, io.p1.x, io.p2.x)
+      val xMax = Mux(io.p1.x > io.p2.x, io.p1.x, io.p2.x)
+      val dx = xMax - xMin
+
+      // Precompute thresholds that split the wall horizontally into 8 equal segments
+      val thresholds = VecInit((1 until 8).map(i => xMin + ((dx * i.U) >> 3)))
+
+      val segmentIdx = Wire(UInt(3.W))
+
+      segmentIdx := PriorityMux(
+        (0 until 7).map(i => (px < thresholds(i)) -> i.U(3.W)) :+
+          (true.B -> 7.U)
+      )
+
+      val gapStep = (largestGap - smallestGap) >> 3
+
+      val currentTopY = smallestGap + (gapStep * segmentIdx)
+      val currentBotY = (240.U - smallestGap) - (gapStep * segmentIdx)
+
+      when(py < largestGap) {
+        visible := py >= currentTopY
+      }
+      when(py > (240.U - largestGap)) {
+        visible := py <= currentBotY
+      }
+    }
   }
+  // only calculate triangle if not
 
-  val c1 = cross(io.p1, io.p2)
-  val c2 = cross(io.p2, io.p3)
-  val c3 = cross(io.p3, io.p4)
-  val c4 = cross(io.p4, io.p1)
-
-  val allPos = (c1 >= 0.S) && (c2 >= 0.S) && (c3 >= 0.S) && (c4 >= 0.S)
-  val allNeg = (c1 <= 0.S) && (c2 <= 0.S) && (c3 <= 0.S) && (c4 <= 0.S)
-
-  io.visible := allPos || allNeg
-  io.colorOut := Mux(io.visible, color.U, 0.U)
+  io.visible := visible
+  io.colorOut := Mux(
+    visible,
+    color.U,
+    0.U(log2Ceil(numColors).W)
+  ) // Output color if visible, else 0
 }
 
 
