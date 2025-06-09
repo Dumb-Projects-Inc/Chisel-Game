@@ -47,14 +47,14 @@ class DualPaletteFrameBuffer(
 
   val bufferSel = RegInit(false.B)
 
-  val buffer0 = Module(new Buffer(width, height, log2Ceil(numColors)))
+  val buffer0 = Module(new Buffer(log2Ceil(numColors)))
   buffer0.io.enable := true.B
   buffer0.io.write := false.B
   buffer0.io.dataIn := 0.U
   buffer0.io.x := 0.U
   buffer0.io.y := 0.U
 
-  val buffer1 = Module(new Buffer(width, height, log2Ceil(numColors)))
+  val buffer1 = Module(new Buffer(log2Ceil(numColors)))
   buffer1.io.enable := true.B
   buffer1.io.write := false.B
   buffer1.io.dataIn := 0.U
@@ -104,11 +104,11 @@ class DualPaletteFrameBuffer(
 }
 
 class Buffer(
-    width: Int,
-    height: Int,
     elementWidth: Int,
     memoryFile: Option[String] = None
 ) extends Module {
+  private val width = 320
+  private val height = 240
   val io = IO(new Bundle {
     val enable = Input(Bool())
     val write = Input(Bool())
@@ -124,7 +124,7 @@ class Buffer(
     val m = Module(
       new gameEngine.util.RamInitSpWf(
         elementWidth,
-        addr.getWidth,
+        log2Ceil(width * height),
         memoryFile.get
       )
     )
@@ -136,7 +136,9 @@ class Buffer(
     io.dataOut := m.io.dout
 
   } else {
-    val m = Module(new gameEngine.util.RamSpWf(elementWidth, addr.getWidth))
+    val m = Module(
+      new gameEngine.util.RamSpWf(elementWidth, log2Ceil(width * height))
+    )
     m.io.clk := clock
     m.io.en := io.enable
     m.io.we := io.write
