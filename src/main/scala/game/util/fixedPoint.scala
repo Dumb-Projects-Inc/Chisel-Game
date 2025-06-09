@@ -78,6 +78,16 @@ object FixedPointUtils {
       absVal & mask
     }
 
+    def fpRound: SInt = {
+      require(
+        self.getWidth == width,
+        s"fpRound: operand width ${self.getWidth} != expected $width"
+      )
+      val half = FixedPointUtils.toFP(0.5)
+
+      Mux(self >= 0.S, (self + half).fpFloor, (self - half).fpCeil)
+    }
+
     def toDouble: Double =
       self.litValue.toDouble / (1 << frac)
   }

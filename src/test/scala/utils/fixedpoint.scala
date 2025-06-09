@@ -8,7 +8,7 @@ import gameEngine.fixed.FixedPointUtils._
 class FixedPointALU extends Module {
   val io = IO(new Bundle {
     val x, y = Input(SInt(width.W))
-    val sum, diff, prod, floor, ceil, fracPart = Output(SInt(width.W))
+    val sum, diff, prod, floor, ceil, fracPart, round = Output(SInt(width.W))
   })
 
   io.sum := io.x + io.y
@@ -18,6 +18,7 @@ class FixedPointALU extends Module {
   io.floor := io.x.fpFloor
   io.ceil := io.x.fpCeil
   io.fracPart := io.x.fpFrac
+  io.round := io.x.fpRound
 }
 
 class FixedPointALUSpec extends AnyFlatSpec {
@@ -152,6 +153,29 @@ class FixedPointALUSpec extends AnyFlatSpec {
         dut.io.x.poke(toRaw(in))
         dut.clock.step()
         dut.io.fracPart.expect(toRaw(expectedFrac))
+      }
+    }
+  }
+
+  it should "round correctly" in {
+    val cases = Seq(
+      (2.75, 3.0),
+      (2.00, 2.0),
+      (-1.25, -1.0),
+      (-2.00, -2.0),
+      (0.50, 1.0),
+      (-0.50, -1.0)
+    )
+    withDut { dut =>
+      for ((in, expected) <- cases) {
+        dut.io.x.poke(toRaw(in))
+        dut.clock.step()
+        val got = dut.io.round.peek()
+        withClue(
+          f"Rounding ${in}. Expected ${expected}, got ${got.toDouble}"
+        ) {
+          assert(got.toDouble == expected)
+        }
       }
     }
   }
