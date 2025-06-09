@@ -204,21 +204,21 @@ private class TopDemo extends Module {
 
 }
 
-object bufferMain {
-  def main(args: Array[String]): Unit = {
-    (new ChiselStage).execute(
-      Array(
-        "--target",
-        "systemverilog",
-        "--target-dir",
-        "generated",
-        "--split-verilog"
-      ),
-      Seq(
-        ChiselGeneratorAnnotation(() => new TopDemo),
-        FirtoolOption("--disable-all-randomization")
-      )
-    )
-
-  }
-}
+//object bufferMain {
+//  def main(args: Array[String]): Unit = {
+//    (new ChiselStage).execute(
+//      Array(
+//        "--target",
+//        "systemverilog",
+//        "--target-dir",
+//        "generated",
+//        "--split-verilog"
+//      ),
+//      Seq(
+//        ChiselGeneratorAnnotation(() => new TopDemo),
+//        FirtoolOption("--disable-all-randomization")
+//      )
+//    )
+//
+//  }
+//}
