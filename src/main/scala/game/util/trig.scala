@@ -11,44 +11,50 @@ object TrigLUT {
 
   private val samplesU = samples.U
   private val mirrorIdxYU = (samples - 1).U
+  val maxFP = (BigInt(1) << (width - 1)) - 1
 }
 
 class TrigLUT extends Module {
   val io = IO(new Bundle {
-    val angle = Input(SInt(TrigLUT.width.W)) // Q16.16 input
-    val sin, cos, tan, sec, csc, cot = Output(SInt(TrigLUT.width.W))
+    val angle = Input(SInt(TrigLUT.width.W)) // Q12.12 input
+    val sin, cos = Output(SInt(TrigLUT.width.W))
+    val tan, sec = Output(SInt(TrigLUT.width.W))
+    val csc, cot = Output(SInt(TrigLUT.width.W))
   })
 
   import TrigLUT._
+
   val sinTable: Vec[SInt] = VecInit.tabulate(samples) { i =>
     val theta = math.Pi / 2 * i.toDouble / samples
     toFP(math.sin(theta))
   }
-
-  // Quarter-cycle secant table [0..π/2)
   val secTable: Vec[SInt] = VecInit.tabulate(samples) { i =>
     val theta = math.Pi / 2 * i.toDouble / samples
     toFP(1.0 / math.cos(theta))
   }
-
-  val cscTable = VecInit.tabulate(samples) { i =>
+  val cscTable: Vec[SInt] = VecInit.tabulate(samples) { i =>
     val theta = math.Pi / 2 * (i.toDouble + 0.5) / samples
     toFP(1.0 / math.sin(theta))
   }
 
-  // constant 2/pi in Q16.16
+  val tanTable: Vec[SInt] = VecInit.tabulate(samples) { i =>
+    val theta = math.Pi / 2 * i.toDouble / samples
+    toFP(math.tan(theta))
+  }
+
+  val cotTable: Vec[SInt] = VecInit.tabulate(samples) { i =>
+    val theta = math.Pi / 2 * i.toDouble / samples
+    val raw = 1.0 / math.tan(theta)
+    val clipped = if (raw.isInfinite) maxFP.toDouble / (1 << frac) else raw
+    toFP(clipped)
+  }
+
   val twoOverPi = toFP(2.0 / math.Pi)
-
-  // scale angle into [0, 4) in Q16.16
   val scaled = io.angle.fpMul(twoOverPi)
-
-  // extract quadrant (integer part mod 4) and fractional part
   val quadrant = (scaled >> frac).asUInt & 3.U
   val fracPart = scaled(frac - 1, 0).asUInt
-
-  // compute base index into quarter-cycle tables
   val idxExt = (fracPart * samplesU) >> frac
-  val idx = idxExt(log2Ceil(samples) - 1, 0)
+  val idx = RegNext(idxExt(log2Ceil(samples) - 1, 0))
 
   io.sin := MuxLookup(quadrant, 0.S)(
     Seq(
@@ -58,8 +64,6 @@ class TrigLUT extends Module {
       3.U -> -sinTable(mirrorIdxYU - idx)
     )
   )
-
-  // cosine shift quadrant
   io.cos := MuxLookup((quadrant + 1.U) & 3.U, 0.S)(
     Seq(
       0.U -> sinTable(idx),
@@ -77,7 +81,6 @@ class TrigLUT extends Module {
       3.U -> secTable(mirrorIdxYU - idx)
     )
   )
-
   io.csc := MuxLookup(quadrant, 0.S)(
     Seq(
       0.U -> cscTable(idx),
@@ -87,6 +90,20 @@ class TrigLUT extends Module {
     )
   )
 
-  io.tan := io.sin.fpMul(io.sec)
-  io.cot := io.cos.fpMul(io.csc)
+  io.tan := MuxLookup(quadrant, 0.S)(
+    Seq(
+      0.U -> tanTable(idx),
+      1.U -> -tanTable(mirrorIdxYU - idx),
+      2.U -> tanTable(idx),
+      3.U -> -tanTable(mirrorIdxYU - idx)
+    )
+  )
+  io.cot := MuxLookup(quadrant, 0.S)(
+    Seq(
+      0.U -> cotTable(idx),
+      1.U -> -cotTable(mirrorIdxYU - idx),
+      2.U -> cotTable(idx),
+      3.U -> -cotTable(mirrorIdxYU - idx)
+    )
+  )
 }
