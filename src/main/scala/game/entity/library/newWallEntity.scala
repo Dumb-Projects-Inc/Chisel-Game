@@ -6,7 +6,7 @@ import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
 
 class NewWallEntity(numColors: Int, color: Int) extends Module {
-   val io = IO(new Bundle {
+  val io = IO(new Bundle {
     val x, y = Input(UInt(9.W))
     val p1, p2 = Input(new Vec2(UInt(9.W)))
     val visible = Output(Bool())
@@ -28,12 +28,16 @@ class NewWallEntity(numColors: Int, color: Int) extends Module {
   val segmentBits = log2Ceil(numSegments)
 
   // Mapping the segments of the wall into thresholds (thresholds(0) = xMin + 1/8 * dx ... thresholds(1) = xMin + 2/8 * dx) and so on...
-  val thresholds = VecInit((1 until numSegments).map(i => xMin + ((dx * i.U) >> segmentBits)))
+  val thresholds = VecInit(
+    (1 until numSegments).map(i => xMin + ((dx * i.U) >> segmentBits))
+  )
 
   // Simply checks what segment px is in by mapping through a priroty mux with all of the segments mapped out.
   val segmentIdx = Wire(UInt(segmentBits.W))
   segmentIdx := PriorityMux(
-    (0 until numSegments - 1).map(i => (px < thresholds(i)) -> i.U(segmentBits.W)) :+
+    (0 until numSegments - 1).map(i =>
+      (px < thresholds(i)) -> i.U(segmentBits.W)
+    ) :+
       (true.B -> (numSegments - 1).U)
   )
 

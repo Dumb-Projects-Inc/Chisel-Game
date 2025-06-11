@@ -61,8 +61,8 @@ class MovingWallDemo extends Module {
 
   val wallWidth = Wire(UInt(9.W))
   val wallHeight = Wire(UInt(9.W))
-  wallWidth := 20.U + (dist >> 1) 
-  wallHeight := 40.U + dist 
+  wallWidth := 20.U + (dist >> 1)
+  wallHeight := 40.U + dist
 
   val centerX = 160.U
   val centerY = 120.U
