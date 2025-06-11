@@ -1,3 +1,3 @@
 coverage:
   ignore:
-    - "src/main/scala/game/screen/PLLBlackBox.scala"
+    - "src/main/scala/game/demos/*"
