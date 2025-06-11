@@ -88,7 +88,11 @@ object FixedPointUtils {
       Mux(self >= 0.S, (self + half).fpFloor, (self - half).fpCeil)
     }
 
+    def fpAbs(): SInt =
+      Mux(self >= 0.S, self, -self)
+
     def toDouble: Double =
       self.litValue.toDouble / (1 << frac)
   }
+
 }

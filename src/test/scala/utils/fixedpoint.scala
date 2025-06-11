@@ -83,6 +83,7 @@ class FixedPointALUSpec extends AnyFlatSpec {
       (0.5, 0.5, 0.25),
       (-1.5, 1.0, -1.5),
       (1.25, 2.00, 2.50),
+      (1.0, 0.5, 0.5),
 
       // positive overflow
       (maxDouble, 2.0, maxDouble),
