@@ -69,7 +69,7 @@ class RaycastDriver extends Module {
       )
     )
 
-    Vec2(idxFP.x(31, 16), idxFP.y(31, 16))
+    Vec2(idxFP.x(23, 12), idxFP.y(23, 12))
 
   }
 

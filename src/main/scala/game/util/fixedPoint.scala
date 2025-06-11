@@ -4,8 +4,8 @@ import chisel3._
 import chisel3.util._
 
 object FixedPointUtils {
-  val width = 32
-  val frac = 16
+  val width = 24
+  val frac = 12
 
   val MAX = ((BigInt(1) << (width - 1)) - 1).S(width.W)
   val MIN = (-(BigInt(1) << (width - 1))).S(width.W)

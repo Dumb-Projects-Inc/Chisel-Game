@@ -10,13 +10,13 @@ import gameEngine.vec2._
 import gameEngine.vec2.Vec2._
 
 class RayRequest extends Bundle {
-  val start = new Vec2(SInt(32.W))
-  val angle = SInt(32.W)
+  val start = new Vec2(SInt(24.W))
+  val angle = SInt(24.W)
 }
 
 class RayResponse extends Bundle {
-  val pos = new Vec2(SInt(32.W))
-  val dist = SInt(32.W)
+  val pos = new Vec2(SInt(24.W))
+  val dist = SInt(24.W)
   val isHorizontal = Bool()
 }
 
@@ -36,12 +36,12 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   val trig = Module(new TrigLUT)
   trig.io.angle := io.in.bits.angle
 
-  val currentPosReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
-  val startPosReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
-  val hRayReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
-  val vRayReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
-  val hRayDeltaReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
-  val vRayDeltaReg = RegInit(Vec2(0.S(32.W), 0.S(32.W)))
+  val currentPosReg = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
+  val startPosReg = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
+  val hRayReg = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
+  val vRayReg = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
+  val hRayDeltaReg = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
+  val vRayDeltaReg = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
   val stepReg = RegInit(0.U(log2Ceil(maxSteps + 1).W))
 
   val vertical = near(trig.io.cos, 0.S)

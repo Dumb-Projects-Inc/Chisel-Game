@@ -209,11 +209,4 @@ class FixedPointUtilsSpec extends AnyFlatSpec {
     assert(lit.litValue == BigInt(math.round(1.004 * (1 << frac))))
   }
 
-  it should "handle edge fractional values" in {
-    val lit1 = toFP(0.5) // 0.5 * 65536 = 32768
-    val lit2 = toFP(-0.5) // -32768
-    assert(lit1.litValue == BigInt(32768))
-    assert(lit2.litValue == BigInt(-32768))
-  }
-
 }

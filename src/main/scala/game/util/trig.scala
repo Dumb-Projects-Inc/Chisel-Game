@@ -6,8 +6,8 @@ import gameEngine.fixed.FixedPointUtils._
 
 object TrigLUT {
   val samples = 256
-  val width = 32
-  val frac = 16
+  val width = 24
+  val frac = 12
 
   private val samplesU = samples.U
   private val mirrorIdxYU = (samples - 1).U
