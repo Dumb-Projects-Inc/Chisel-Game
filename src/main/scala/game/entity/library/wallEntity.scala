@@ -69,7 +69,6 @@ class WallEntity(numColors: Int, color: Int) extends Module {
   ) // Output color if visible, else 0
 }
 
-
 class SquareEntity(numColors: Int, color: Int) extends Module {
   val screenWidth = 320
   val screenHeight = 240
@@ -96,4 +95,61 @@ class SquareEntity(numColors: Int, color: Int) extends Module {
 
   private val wallColor = color.U(log2Ceil(numColors).W)
   io.colorOut := Mux(io.visible, wallColor, 0.U)
+}
+
+class Parallelogram extends Module {
+  val io = IO(new Bundle {
+    val update = Input(Bool())
+    val p0 = Input(new Vec2(SInt(16.W)))
+    val p1 = Input(new Vec2(SInt(16.W)))
+    val p2 = Input(new Vec2(SInt(16.W)))
+    val point = Input(new Vec2(SInt(16.W)))
+    val inside = Output(Bool())
+  })
+
+  val p0_reg = RegInit(Vec2(0.S(16.W), 0.S(16.W)))
+  val p1_reg = RegInit(Vec2(0.S(16.W), 0.S(16.W)))
+  val p2_reg = RegInit(Vec2(0.S(16.W), 0.S(16.W)))
+
+  when(io.update) {
+    p0_reg := io.p0
+    p1_reg := io.p1
+    p2_reg := io.p2
+  }
+
+// Stage 1
+  val u = Vec2(p1_reg.x - p0_reg.x, p1_reg.y - p0_reg.y)
+  val v = Vec2(p2_reg.x - p0_reg.x, p2_reg.y - p0_reg.y)
+  val d = Vec2(io.point.x - p0_reg.x, io.point.y - p0_reg.y)
+
+  val u_reg = RegNext(u)
+  val v_reg = RegNext(v)
+  val d_reg = RegNext(d)
+
+// Stage 2
+  val det = u_reg.x * v_reg.y - u_reg.y * v_reg.x
+  val s_num = d_reg.x * v_reg.y - d_reg.y * v_reg.x
+  val t_num = u_reg.x * d_reg.y - u_reg.y * d_reg.x
+
+  val det_reg = RegNext(det)
+  val s_num_reg = RegNext(s_num)
+  val t_num_reg = RegNext(t_num)
+
+// Stage 3
+  val det_zero = det_reg === 0.S
+  val det_positive = det_reg > 0.S && !det_zero
+
+  val s_in_range = Mux(
+    det_positive,
+    s_num_reg >= 0.S && s_num_reg <= det_reg,
+    s_num_reg <= 0.S && s_num_reg >= det_reg
+  )
+
+  val t_in_range = Mux(
+    det_positive,
+    t_num_reg >= 0.S && t_num_reg <= det_reg,
+    t_num_reg <= 0.S && t_num_reg >= det_reg
+  )
+
+  io.inside := !det_zero && s_in_range && t_in_range
 }
