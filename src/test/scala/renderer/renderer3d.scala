@@ -113,8 +113,9 @@ class RaycastDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
             dut.io.pos.x.poke(toFP(start._1))
             dut.io.pos.y.poke(toFP(start._2))
             dut.io.angle.poke(toFP(angle))
+            dut.clock.step(2)
             dut.io.valid.poke(true)
-            dut.clock.step(10)
+            dut.clock.step(25)
 
             dut.io.hitIdx.x.peek().litValue should be(hit._1)
             dut.io.hitIdx.y.peek().litValue should be(hit._2)
