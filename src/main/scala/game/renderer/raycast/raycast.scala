@@ -61,7 +61,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   io.out.valid := false.B
 
   object S extends ChiselEnum {
-    val idle, init, init2, step, done = Value
+    val idle, init0, init1, init2, step1, step2, done = Value
   }
   val state = RegInit(S.idle)
 
@@ -73,13 +73,14 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       when(io.in.fire) {
         angleReg := io.in.bits.angle
         startPosReg := io.in.bits.start
-        state := S.init2
+        state := S.init0
       }
     }
-    is(S.init2) {
-      state := S.init
+    is(S.init0) {
+      state := S.init1
     }
-    is(S.init) {
+    is(S.init1) {
+      state := S.init2
       val x0 =
         Mux(east, startPosReg.x.fpCeil, startPosReg.x.fpFloor)
       val y0 =
@@ -126,16 +127,17 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       hRayDeltaReg := hRayDelta
       vRayDeltaReg := vRayDelta
 
+    }
+    is(S.init2) {
       stepReg := 0.U
 
-      val hRayDist0 = hRay0.dist2Fp(startPosReg)
-      val vRayDist0 = vRay0.dist2Fp(startPosReg)
-      currentPosReg := Mux(hRayDist0 < vRayDist0, hRay0, vRay0)
+      val hRayDist0 = hRayReg.dist2Fp(startPosReg)
+      val vRayDist0 = vRayReg.dist2Fp(startPosReg)
+      currentPosReg := Mux(hRayDist0 < vRayDist0, hRayReg, vRayReg)
 
-      state := S.step
-
+      state := S.step1
     }
-    is(S.step) {
+    is(S.step1) {
       when(io.stop) {
         state := S.done
 
@@ -147,16 +149,21 @@ class Raycaster(maxSteps: Int = 12) extends Module {
 
         hRayReg := hRayNext
         vRayReg := vRayNext
+        state := S.step2
 
-        val nextHdist = hRayNext.dist2Fp(startPosReg)
-        val nextVdist = vRayNext.dist2Fp(startPosReg)
-
-        currentPosReg := Mux(nextHdist < nextVdist, hRayNext, vRayNext)
-
-        stepReg := stepReg + 1.U
       }.otherwise {
         state := S.done
       }
+    }
+    is(S.step2) {
+      val nextHdist = hRayReg.dist2Fp(startPosReg)
+      val nextVdist = vRayReg.dist2Fp(startPosReg)
+
+      currentPosReg := Mux(nextHdist < nextVdist, hRayReg, vRayReg)
+
+      stepReg := stepReg + 1.U
+
+      state := S.step1
     }
     is(S.done) {
       io.out.valid := true.B
@@ -164,6 +171,5 @@ class Raycaster(maxSteps: Int = 12) extends Module {
         state := S.idle
       }
     }
-
   }
 }
