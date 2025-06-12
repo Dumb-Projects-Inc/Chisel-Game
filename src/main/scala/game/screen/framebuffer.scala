@@ -149,6 +149,7 @@ class Buffer(
 
 }
 
+// $COVERAGE-OFF$
 private class TopDemo extends Module {
   val io = IO(new Bundle {
     val vga = Output(new VGAInterface)
@@ -205,7 +206,7 @@ private class TopDemo extends Module {
   }
 
 }
-
+// $COVERAGE-ON$
 //object bufferMain {
 //  def main(args: Array[String]): Unit = {
 //    (new ChiselStage).execute(
