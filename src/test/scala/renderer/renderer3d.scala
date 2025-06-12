@@ -9,16 +9,25 @@ import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
 import gameEngine.raycast.Raycaster
 import gameEngine.trig.TrigLUT
+import gameEngine.raycast._
+import chisel3.util._
 
-class RaycastDriver extends Module {
+class RaycastDriver(fov: Double, nRays: Int) extends Module {
   val io = IO(new Bundle {
-    val pos = Input(new Vec2(SInt(32.W)))
-    val angle = Input(SInt(32.W))
-    val valid = Input(Bool())
-    val hitPos = Output(new Vec2(SInt(32.W)))
-    val hitIdx = Output(new Vec2(UInt(16.W)))
-    val hitTile = Output(Bool())
+    val request = Flipped(Decoupled(new RayRequest))
+    val response = Decoupled(new RayResponse)
   })
+
+  def near(a: SInt, b: SInt, tol: Double = 0.001): Bool = {
+    val diff = a - b
+    val absDiff = Mux(diff >= 0.S, diff, -diff)
+    absDiff <= toFP(tol)
+  }
+
+  val halfFov: Double = fov / 2.0
+  val step: Double = fov / (nRays - 1)
+  val offsets = for (i <- 0 until nRays) yield (step * i - halfFov)
+  val offsetsVec = VecInit.tabulate(nRays) { (i) => (toFP(offsets(i))) }
 
   val _map = Seq(
     Seq(1, 1, 1, 1),
@@ -27,53 +36,83 @@ class RaycastDriver extends Module {
     Seq(1, 1, 1, 1)
   )
 
-  val map = VecInit.tabulate(4, 4) { (x, y) => _map(x)(y).B }
-  for (x <- 0 to 3; y <- 0 to 3) {
-    assert(map(x)(y) === _map(x)(y).B)
-  }
+  val map = VecInit.tabulate(4, 4) { (x, y) => _map(x)(y).U }
 
   val raycaster = Module(new Raycaster)
+  val queue = Module(new Queue(new RayResponse, 4))
+  io.response <> queue.io.deq
 
   val trig = Module(new TrigLUT)
-  trig.io.angle := io.angle
+  val angleReg = RegInit(0.S(24.W))
+  trig.io.angle := angleReg
 
   val vertical = near(trig.io.cos, 0.S)
   val horizontal = near(trig.io.sin, 0.S)
   val east = trig.io.cos >= 0.S
   val north = trig.io.sin >= 0.S
 
-  def near(a: SInt, b: SInt, tol: Double = 0.001): Bool = {
-    val diff = a - b
-    val absDiff = Mux(diff >= 0.S, diff, -diff)
-    absDiff <= toFP(tol)
-  }
+  val posReg = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
 
-  raycaster.io.in.valid := io.valid
-  raycaster.io.in.bits.start := io.pos
-  raycaster.io.in.bits.angle := io.angle
+  val currentRayOffsetIdx = RegInit(0.U(log2Ceil(nRays).W))
+  val currentRayPos = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
+  val currentRayHorizontal = RegInit(Bool())
+
+  object S extends ChiselEnum {
+    val idle, initRay, run, check = Value
+  }
+  val state = RegInit(S.idle)
+
+  io.request.ready := false.B
+  switch(state) {
+    is(S.idle) {
+      io.request.ready := true.B
+
+      when(io.request.fire) {
+        angleReg := io.request.bits.angle
+        posReg := io.request.bits.start
+        currentRayOffsetIdx := 0.U
+        state := S.initRay
+      }
+    }
+    is(S.initRay) {
+      raycaster.io.in.bits.start := posReg
+      raycaster.io.in.bits.angle := angleReg + offsetsVec(currentRayOffsetIdx)
+      raycaster.io.in.valid := true.B
+      when(raycaster.io.in.ready) {
+        state := S.run
+      }
+    }
+    is(S.run) {
+      currentRayPos
+    }
+    is(S.check) {
+      val hitIdx = {
+        val idxFP = Mux(
+          raycaster.io.out.bits.isHorizontal,
+          Mux(
+            north,
+            Vec2(pos.x.fpFloor, pos.y),
+            Vec2(pos.x.fpFloor, pos.y - toFP(1.0))
+          ),
+          Mux(
+            east,
+            Vec2(pos.x, pos.y.fpFloor),
+            Vec2(pos.x - toFP(1.0), pos.y.fpFloor)
+          )
+        )
+        Vec2(idxFP.x(23, 12), idxFP.y(23, 12))
+      }
+      val tileHit = map(hitIdx.x(1, 0))(hitIdx.y(1, 0))
+      raycaster.io.stop := tileHit === 0.U
+
+      raycaster.io.out.ready := queue.io.enq.ready
+
+      when(raycaster.io.out.valid) {}
+
+    }
+  }
 
   val pos = raycaster.io.out.bits.pos
-  val hitIdx = {
-
-    val idxFP = Mux(
-      raycaster.io.out.bits.isHorizontal,
-      Mux(
-        north,
-        Vec2(pos.x.fpFloor, pos.y),
-        Vec2(pos.x.fpFloor, pos.y - toFP(1.0))
-      ),
-      Mux(
-        east,
-        Vec2(pos.x, pos.y.fpFloor),
-        Vec2(pos.x - toFP(1.0), pos.y.fpFloor)
-      )
-    )
-
-    Vec2(idxFP.x(23, 12), idxFP.y(23, 12))
-
-  }
-
-  val tileHit = map(hitIdx.x(1, 0))(hitIdx.y(1, 0))
 
   raycaster.io.stop := tileHit
   raycaster.io.out.ready := false.B

@@ -171,12 +171,13 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim with Matchers {
                 "Backpressure should assert when starting new calculation"
               )
 
-            dut.clock.stepUntil(dut.io.out.valid, 1, (steps * 10 + 10))
-            dut.io.out.valid
-              .expect(true.B, "Ray should be finished calculating")
-
             dut.io.out.ready.poke(true.B)
-            dut.clock.step()
+            var seen = 0
+            while (seen < steps + 1) {
+              dut.clock.stepUntil(dut.io.out.valid, 1, (steps + 1) * 10)
+              dut.clock.step()
+              seen += 1
+            }
             dut.io.out.ready.poke(false.B)
 
             // Validate outputs
@@ -292,11 +293,13 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim with Matchers {
                 "Backpressure should assert when starting new calculation"
               )
 
-            dut.clock.stepUntil(dut.io.out.valid, 1, ((steps + 1) * 10))
-            dut.io.out.valid.expect(true.B, "DUT should be done calculating")
-
+            var seen = 0
             dut.io.out.ready.poke(true.B)
-            dut.clock.step()
+            while (seen < steps + 1) {
+              dut.clock.stepUntil(dut.io.out.valid, 1, (steps * 10 + 10))
+              dut.clock.step()
+              seen += 1
+            }
             dut.io.out.ready.poke(false.B)
 
             // Validate outputs
@@ -304,13 +307,48 @@ class RaycasterSpec extends AnyFlatSpec with ChiselSim with Matchers {
             val gotHitHorizontal =
               dut.io.out.bits.isHorizontal.peek().litToBoolean
 
-            if (gotHitHorizontal != exp) {
-              println(
-                f"Test: [${pos.x}%.1f,${pos.y}%.1f] @ $angle%.3f rad x $steps: horizontal $exp"
-              )
+            gotHitHorizontal should be(exp)
 
-            }
           }
+        }
+      }
+    }
+  }
+
+  "Raycaster" should "respect io.stop signal" in {
+    type Test = (Vec2D, Double)
+
+    val tests: Seq[Test] = Seq(
+      (Vec2D(0.5, 0.5), 0)
+    )
+
+    simulate(new Raycaster(12)) { dut =>
+      tests.foreach { case (pos, angle) =>
+        withClue(
+          f"Test: [${pos.x}%.1f,${pos.y}%.1f] @ $angle%.3f rad"
+        ) {
+
+          dut.io.stop.poke(false.B)
+          dut.io.in.valid.poke(false.B)
+          dut.io.out.ready.poke(false.B)
+
+          dut.io.in.bits.start.x.poke(toFP(pos.x))
+          dut.io.in.bits.start.y.poke(toFP(pos.y))
+          dut.io.in.bits.angle.poke(toFP(angle))
+          dut.clock.step()
+
+          dut.io.in.ready
+            .expect(true.B, "DUT should be ready to accept new calculations")
+
+          // Start computation
+          dut.io.in.valid.poke(true.B)
+          dut.clock.step()
+          dut.io.in.valid.poke(false.B)
+
+          dut.clock.stepUntil(dut.io.out.valid, 1, 50)
+
+          val exp = RaycasterGoldenModel.expectedDdaPos(pos, angle, 0)
+
         }
       }
     }

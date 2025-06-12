@@ -92,7 +92,6 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       intermediateProduct := (y0 - startPosReg.y).fpMul(trig.io.cot)
       intermediateProduct1 := (x0 - startPosReg.x).fpMul(trig.io.tan)
       state := S.init2
-
     }
     is(S.init2) {
       state := S.init3
@@ -150,7 +149,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       val vRayDist0 = vRayReg.dist2Fp(startPosReg)
       currentPosReg := Mux(hRayDist0 < vRayDist0, hRayReg, vRayReg)
 
-      state := S.step1
+      state := S.done
     }
     is(S.step1) {
       when(io.stop) {
@@ -178,12 +177,16 @@ class Raycaster(maxSteps: Int = 12) extends Module {
 
       stepReg := stepReg + 1.U
 
-      state := S.step1
+      state := S.done
     }
     is(S.done) {
       io.out.valid := true.B
       when(io.out.fire) {
-        state := S.idle
+        when(io.stop || stepReg === maxSteps.U) {
+          state := S.idle
+        }.otherwise {
+          state := S.step1
+        }
       }
     }
   }
