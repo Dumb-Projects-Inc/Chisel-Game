@@ -61,11 +61,20 @@ class Raycaster(maxSteps: Int = 12) extends Module {
   io.out.valid := false.B
 
   object S extends ChiselEnum {
-    val idle, init0, init1, init2, step1, step2, done = Value
+    val idle, init0, init1, init2, init3, step1, step2, done = Value
   }
   val state = RegInit(S.idle)
 
   io.in.ready := false.B
+
+  val x0 =
+    Mux(east, startPosReg.x.fpCeil, startPosReg.x.fpFloor)
+  val y0 =
+    Mux(north, startPosReg.y.fpCeil, startPosReg.y.fpFloor)
+
+  val intermediateProduct = RegInit(0.S(24.W))
+  val intermediateProduct1 = RegInit(0.S(24.W))
+
   switch(state) {
     is(S.idle) {
       io.in.ready := true.B
@@ -80,7 +89,13 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       state := S.init1
     }
     is(S.init1) {
+      intermediateProduct := (y0 - startPosReg.y).fpMul(trig.io.cot)
+      intermediateProduct1 := (x0 - startPosReg.x).fpMul(trig.io.tan)
       state := S.init2
+
+    }
+    is(S.init2) {
+      state := S.init3
       val x0 =
         Mux(east, startPosReg.x.fpCeil, startPosReg.x.fpFloor)
       val y0 =
@@ -90,7 +105,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
         horizontal,
         Vec2(MAX, startPosReg.y),
         Vec2(
-          startPosReg.x + (y0 - startPosReg.y).fpMul(trig.io.cot),
+          startPosReg.x + intermediateProduct,
           y0
         )
       )
@@ -100,7 +115,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
         Vec2(startPosReg.x, MAX),
         Vec2(
           x0,
-          startPosReg.y + (x0 - startPosReg.x).fpMul(trig.io.tan)
+          startPosReg.y + intermediateProduct1
         )
       )
 
@@ -128,7 +143,7 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       vRayDeltaReg := vRayDelta
 
     }
-    is(S.init2) {
+    is(S.init3) {
       stepReg := 0.U
 
       val hRayDist0 = hRayReg.dist2Fp(startPosReg)

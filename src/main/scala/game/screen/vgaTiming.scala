@@ -51,7 +51,7 @@ class VGATiming(config: VgaConfig = VgaConfigs.vga640x480) extends Module {
       Output(UInt(log2Ceil(math.max(visibleAreaH, visibleAreaV)).W))
   })
 
-  val (_, tick) = Counter(true.B, 4)
+  val (_, tick) = Counter(true.B, 2)
 
   val totalH = visibleAreaH + frontPorchH + syncPulseH + backPorchH
   val startHSync = visibleAreaH + frontPorchH
