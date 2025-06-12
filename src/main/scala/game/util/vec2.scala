@@ -25,7 +25,18 @@ object Vec2 {
       val dX = a.x - b.x
       val dY = a.y - b.y
       dX.fpMul(dX) +& dY.fpMul(dY)
+
     }
+
+    def distFpApprox(b: Vec2[SInt]): SInt = {
+      val absX = (a.x - b.x).abs
+      val absY = (a.y - b.y).abs
+      val mx = Mux(absX > absY, absX, absY)
+      val mn = Mux(absX > absY, absY, absX)
+      val approx = mx + (mn >> 1)
+      approx
+    }
+
   }
 
   implicit class Vec2UIntOps(val a: Vec2[UInt]) {
