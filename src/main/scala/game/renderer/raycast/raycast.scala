@@ -152,22 +152,14 @@ class Raycaster(maxSteps: Int = 12) extends Module {
       state := S.done
     }
     is(S.step1) {
-      when(io.stop) {
-        state := S.done
+      val hRayNext =
+        Mux(currentHitIsHorizontal, hRayReg + hRayDeltaReg, hRayReg)
+      val vRayNext =
+        Mux(currentHitIsHorizontal, vRayReg, vRayReg + vRayDeltaReg)
 
-      }.elsewhen(stepReg < maxSteps.U) {
-        val hRayNext =
-          Mux(currentHitIsHorizontal, hRayReg + hRayDeltaReg, hRayReg)
-        val vRayNext =
-          Mux(currentHitIsHorizontal, vRayReg, vRayReg + vRayDeltaReg)
-
-        hRayReg := hRayNext
-        vRayReg := vRayNext
-        state := S.step2
-
-      }.otherwise {
-        state := S.done
-      }
+      hRayReg := hRayNext
+      vRayReg := vRayNext
+      state := S.step2
     }
     is(S.step2) {
       val nextHdist = hRayReg.dist2Fp(startPosReg)

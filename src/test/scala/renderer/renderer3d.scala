@@ -12,10 +12,16 @@ import gameEngine.trig.TrigLUT
 import gameEngine.raycast._
 import chisel3.util._
 
-class RaycastDriver(fov: Double, nRays: Int) extends Module {
+class RayHit(nTiles: Int) extends Bundle {
+  val dist = SInt(24.W)
+  val tile = UInt(log2Ceil(nTiles).W)
+}
+
+class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
+    extends Module {
   val io = IO(new Bundle {
     val request = Flipped(Decoupled(new RayRequest))
-    val response = Decoupled(new RayResponse)
+    val response = Decoupled(new RayHit(nTiles))
   })
 
   def near(a: SInt, b: SInt, tol: Double = 0.001): Bool = {
@@ -39,7 +45,7 @@ class RaycastDriver(fov: Double, nRays: Int) extends Module {
   val map = VecInit.tabulate(4, 4) { (x, y) => _map(x)(y).U }
 
   val raycaster = Module(new Raycaster)
-  val queue = Module(new Queue(new RayResponse, 4))
+  val queue = Module(new Queue(new RayHit(nTiles), 4))
   io.response <> queue.io.deq
 
   val trig = Module(new TrigLUT)
@@ -55,14 +61,24 @@ class RaycastDriver(fov: Double, nRays: Int) extends Module {
 
   val currentRayOffsetIdx = RegInit(0.U(log2Ceil(nRays).W))
   val currentRayPos = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
-  val currentRayHorizontal = RegInit(Bool())
+  val currentRayDist = RegInit(0.S(24.W))
+  val currentRayHorizontal = RegInit(false.B)
+  val currentRayTile = RegInit(0.U(log2Ceil(nTiles).W))
 
   object S extends ChiselEnum {
-    val idle, initRay, run, check = Value
+    val idle, initRay, step, check, emit = Value
   }
   val state = RegInit(S.idle)
 
   io.request.ready := false.B
+  raycaster.io.out.ready := false.B
+  raycaster.io.stop := false.B
+
+  queue.io.enq.valid := false.B
+  queue.io.enq.bits := DontCare
+  raycaster.io.in.valid := false.B
+  raycaster.io.in.bits := DontCare
+
   switch(state) {
     is(S.idle) {
       io.request.ready := true.B
@@ -79,89 +95,125 @@ class RaycastDriver(fov: Double, nRays: Int) extends Module {
       raycaster.io.in.bits.angle := angleReg + offsetsVec(currentRayOffsetIdx)
       raycaster.io.in.valid := true.B
       when(raycaster.io.in.ready) {
-        state := S.run
+        currentRayOffsetIdx := currentRayOffsetIdx + 1.U
+        state := S.step
       }
     }
-    is(S.run) {
-      currentRayPos
+    is(S.step) {
+      when(raycaster.io.out.valid) {
+        currentRayPos := raycaster.io.out.bits.pos
+        currentRayHorizontal := raycaster.io.out.bits.isHorizontal
+        currentRayDist := raycaster.io.out.bits.dist
+        state := S.check
+      }
     }
     is(S.check) {
+      raycaster.io.out.ready := true.B
       val hitIdx = {
         val idxFP = Mux(
-          raycaster.io.out.bits.isHorizontal,
+          currentRayHorizontal,
           Mux(
             north,
-            Vec2(pos.x.fpFloor, pos.y),
-            Vec2(pos.x.fpFloor, pos.y - toFP(1.0))
+            Vec2(currentRayPos.x.fpFloor, currentRayPos.y),
+            Vec2(currentRayPos.x.fpFloor, currentRayPos.y - toFP(1.0))
           ),
           Mux(
             east,
-            Vec2(pos.x, pos.y.fpFloor),
-            Vec2(pos.x - toFP(1.0), pos.y.fpFloor)
+            Vec2(currentRayPos.x, currentRayPos.y.fpFloor),
+            Vec2(currentRayPos.x - toFP(1.0), currentRayPos.y.fpFloor)
           )
         )
         Vec2(idxFP.x(23, 12), idxFP.y(23, 12))
       }
-      val tileHit = map(hitIdx.x(1, 0))(hitIdx.y(1, 0))
-      raycaster.io.stop := tileHit === 0.U
-
-      raycaster.io.out.ready := queue.io.enq.ready
-
-      when(raycaster.io.out.valid) {}
-
+      val tileHit = map(hitIdx.x)(hitIdx.y)
+      when(tileHit =/= 0.U) {
+        raycaster.io.stop := true.B
+        currentRayTile := tileHit
+        state := S.emit
+      }.otherwise {
+        state := S.step
+      }
+    }
+    is(S.emit) {
+      queue.io.enq.valid := true.B
+      queue.io.enq.bits.dist := currentRayDist
+      queue.io.enq.bits.tile := currentRayTile
+      when(queue.io.enq.ready) {
+        when(currentRayOffsetIdx === nRays.U) {
+          state := S.idle
+        }.otherwise {
+          state := S.initRay
+        }
+      }
     }
   }
-
-  val pos = raycaster.io.out.bits.pos
-
-  raycaster.io.stop := tileHit
-  raycaster.io.out.ready := false.B
-
-  io.hitPos := pos
-  io.hitIdx := hitIdx
-  io.hitTile := tileHit
-
 }
 
 class RaycastDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
 
-  val testCases = Seq(
-    ((1.5, 1.5), math.Pi / 6, (3, 2)),
-    ((1.5, 1.5), math.Pi / 6 * 2, (2, 3)),
-    ((1.5, 1.5), math.Pi / 8 * 7, (0, 1)),
-    ((1.5, 1.5), math.Pi / 16 * 9, (1, 3)),
-    ((1.5, 1.5), math.Pi / 6 * 7, (0, 1)),
-    ((1.5, 1.5), math.Pi / 6 * 8, (1, 0)),
-    ((1.5, 1.5), math.Pi / 6 * 8, (1, 0)),
-    ((1.5, 1.5), math.Pi / 6 * 10, (1, 0)),
-    ((1.5, 1.5), math.Pi / 6 * 11, (2, 0)),
-    ((1.5, 1.5), 0.0, (3, 1)),
-    ((1.5, 1.5), math.Pi / 2, (1, 3)),
-    ((1.5, 1.5), math.Pi, (0, 1)),
-    ((1.5, 1.5), math.Pi / 2 * 3, (1, 0))
+  def expected(start: Vec2D, angle: Double, fov: Double, nRays: Int) = {
+
+    val halfFov: Double = fov / 2.0
+    val step: Double = fov / (nRays - 1)
+    val offsets = for (i <- 0 until nRays) yield (step * i - halfFov)
+
+  }
+
+  case class Test(
+      pos: Vec2D,
+      angle: Double,
+      fov: Double,
+      nRays: Int,
+      distances: Seq[Double]
+  )
+
+  val testCases: Seq[Test] = Seq(
+    Test(
+      pos = Vec2D(1.5, 1.5),
+      angle = math.Pi / 4,
+      fov = 2,
+      nRays = 3,
+      distances = Seq(1.522, 2.121, 1.525)
+    ),
+    Test(
+      pos = Vec2D(1.1, 1.1),
+      angle = 0,
+      fov = 2,
+      nRays = 6,
+      distances = Seq(1.307, 1.090, 0.918, 1.939, 2.302, 2.257)
+    )
   )
 
   describe("RaycastDriver") {
-
     it("pass general test cases") {
-      for ((start, angle, hit) <- testCases) {
+      for (t <- testCases) {
+        simulate(new RaycastDriver(fov = t.fov, nRays = t.nRays)) { dut =>
+          withClue(t) {
+            dut.io.request.ready.expect(true.B)
+            dut.io.request.bits.angle.poke(toFP(t.angle))
+            dut.io.request.bits.start.x.poke(toFP(t.pos.x))
+            dut.io.request.bits.start.y.poke(toFP(t.pos.y))
+            dut.io.request.valid.poke(true.B)
+            dut.clock.step()
+            dut.io.request.valid.poke(false.B)
+            for (expDistance <- t.distances) {
+              withClue(expDistance) {
+                dut.io.response.ready.poke(false.B)
+                dut.io.request.ready.expect(false.B)
 
-        withClue(f"${start} - $angle - $hit") {
-
-          simulate(new RaycastDriver) { dut =>
-            dut.io.pos.x.poke(toFP(start._1))
-            dut.io.pos.y.poke(toFP(start._2))
-            dut.io.angle.poke(toFP(angle))
-            dut.clock.step(2)
-            dut.io.valid.poke(true)
-            dut.clock.step(25)
-
-            dut.io.hitIdx.x.peek().litValue should be(hit._1)
-            dut.io.hitIdx.y.peek().litValue should be(hit._2)
+                dut.clock.stepUntil(dut.io.response.valid, 1, 100)
+                dut.io.response.valid.expect(true.B)
+                expDistance * expDistance should be(
+                  dut.io.response.bits.dist.peek().toDouble +- 0.1
+                )
+                dut.io.response.ready.poke(true.B)
+                dut.clock.step()
+              }
+            }
+            dut.io.request.ready.expect(true.B)
           }
         }
       }
     }
-
   }
 }
