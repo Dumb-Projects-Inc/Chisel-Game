@@ -8,6 +8,7 @@ case class Vec2D(x: Double, y: Double) {
   override def toString: String = s"(x=$x, y=$y)"
 
   def norm: Double = math.sqrt(x * x + y * y)
+  def -(other: Vec2D) = Vec2D(x - other.x, y - other.y)
 }
 
 object Vec2D {
@@ -21,7 +22,7 @@ object RaycasterGoldenModel {
       start: Vec2D,
       angle: Double,
       nSteps: Int = 0
-  ): Vec2D = {
+  ): (Vec2D, Double) = {
     val pointsEast = math.cos(angle) > 0
     val pointsNorth = math.sin(angle) > 0
 
@@ -105,7 +106,7 @@ object RaycasterGoldenModel {
       }
     }
 
-    (pos)
+    (pos, (pos - start).norm)
   }
 
 }
@@ -116,7 +117,7 @@ class RaycasterGoldenModelSpec extends AnyFlatSpec with Matchers {
 
   def testAngels(tests: Seq[Test]): Unit = {
     for ((start, angle, steps, end) <- tests) {
-      val result = expectedDdaPos(start, angle, steps)
+      val (result, dist) = expectedDdaPos(start, angle, steps)
       withClue(
         f"start: ${start} - angle: ${angle}%.3f, - steps: ${steps} - coord: X ="
       ) {
