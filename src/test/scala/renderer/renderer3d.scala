@@ -11,6 +11,7 @@ import gameEngine.raycast.Raycaster
 import gameEngine.trig.TrigLUT
 import gameEngine.raycast._
 import chisel3.util._
+import chisel3.experimental.BundleLiterals._
 
 class RayHit(nTiles: Int) extends Bundle {
   val dist = SInt(24.W)
@@ -57,7 +58,14 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
   val east = trig.io.cos >= 0.S
   val north = trig.io.sin >= 0.S
 
-  val posReg = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
+  val requestReg = RegInit(
+    (new RayRequest)
+      .Lit(
+        _.start -> ((new Vec2(SInt(24.W)))
+          .Lit(_.x -> 0.S(24.W), _.y -> 0.S(24.W))),
+        _.angle -> 0.S(24.W)
+      )
+  )
 
   val currentRayOffsetIdx = RegInit(0.U(log2Ceil(nRays).W))
   val currentRayPos = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
@@ -84,15 +92,16 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
       io.request.ready := true.B
 
       when(io.request.fire) {
-        angleReg := io.request.bits.angle
-        posReg := io.request.bits.start
+        requestReg := io.request.bits
         currentRayOffsetIdx := 0.U
         state := S.initRay
       }
     }
     is(S.initRay) {
-      raycaster.io.in.bits.start := posReg
-      raycaster.io.in.bits.angle := angleReg + offsetsVec(currentRayOffsetIdx)
+      raycaster.io.in.bits.start := requestReg.start
+      val angle = requestReg.angle + offsetsVec(currentRayOffsetIdx)
+      raycaster.io.in.bits.angle := angle
+      angleReg := angle
       raycaster.io.in.valid := true.B
       when(raycaster.io.in.ready) {
         currentRayOffsetIdx := currentRayOffsetIdx + 1.U
@@ -125,7 +134,7 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
         )
         Vec2(idxFP.x(23, 12), idxFP.y(23, 12))
       }
-      val tileHit = map(hitIdx.x)(hitIdx.y)
+      val tileHit = map(hitIdx.y)(hitIdx.x)
       when(tileHit =/= 0.U) {
         raycaster.io.stop := true.B
         currentRayTile := tileHit
@@ -151,14 +160,6 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
 
 class RaycastDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
 
-  def expected(start: Vec2D, angle: Double, fov: Double, nRays: Int) = {
-
-    val halfFov: Double = fov / 2.0
-    val step: Double = fov / (nRays - 1)
-    val offsets = for (i <- 0 until nRays) yield (step * i - halfFov)
-
-  }
-
   case class Test(
       pos: Vec2D,
       angle: Double,
@@ -180,7 +181,7 @@ class RaycastDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
       angle = 0,
       fov = 2,
       nRays = 6,
-      distances = Seq(1.307, 1.090, 0.918, 1.939, 2.302, 2.257)
+      distances = Seq(0.12, 0.176, 0.5, 1.94, 2.3, 2.25)
     )
   )
 
@@ -188,7 +189,7 @@ class RaycastDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
     it("pass general test cases") {
       for (t <- testCases) {
         simulate(new RaycastDriver(fov = t.fov, nRays = t.nRays)) { dut =>
-          withClue(t) {
+          withClue(t.toString() + "\n") {
             dut.io.request.ready.expect(true.B)
             dut.io.request.bits.angle.poke(toFP(t.angle))
             dut.io.request.bits.start.x.poke(toFP(t.pos.x))
@@ -203,8 +204,8 @@ class RaycastDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
 
                 dut.clock.stepUntil(dut.io.response.valid, 1, 100)
                 dut.io.response.valid.expect(true.B)
-                expDistance * expDistance should be(
-                  dut.io.response.bits.dist.peek().toDouble +- 0.1
+                math.sqrt(dut.io.response.bits.dist.peek().toDouble) should be(
+                  expDistance +- 0.1
                 )
                 dut.io.response.ready.poke(true.B)
                 dut.clock.step()
