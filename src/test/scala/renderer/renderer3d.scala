@@ -31,9 +31,14 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
     absDiff <= toFP(tol)
   }
 
-  val halfFov: Double = fov / 2.0
-  val step: Double = fov / (nRays - 1)
-  val offsets = for (i <- 0 until nRays) yield (step * i - halfFov)
+  val offsets: Seq[Double] =
+    if (nRays > 1) {
+      val halfFov = fov / 2.0
+      val step = fov / (nRays - 1)
+      (0 until nRays).map(i => step * i - halfFov)
+    } else {
+      Seq(0.0)
+    }
   val offsetsVec = VecInit.tabulate(nRays) { (i) => (toFP(offsets(i))) }
 
   val _map = Seq(
@@ -67,7 +72,7 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
       )
   )
 
-  val currentRayOffsetIdx = RegInit(0.U(log2Ceil(nRays).W))
+  val currentRayOffsetIdx = RegInit(0.U(log2Ceil(nRays + 1).W))
   val currentRayPos = RegInit(Vec2(0.S(24.W), 0.S(24.W)))
   val currentRayDist = RegInit(0.S(24.W))
   val currentRayHorizontal = RegInit(false.B)
@@ -182,6 +187,34 @@ class RaycastDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
       fov = 2,
       nRays = 6,
       distances = Seq(0.12, 0.176, 0.5, 1.94, 2.3, 2.25)
+    ),
+    Test(
+      pos = Vec2D(1.5, 1.5),
+      angle = 0.0,
+      fov = 0.0,
+      nRays = 1,
+      distances = Seq(1.5)
+    ),
+    Test(
+      pos = Vec2D(1.5, 1.5),
+      angle = math.Pi / 2,
+      fov = 0.0,
+      nRays = 1,
+      distances = Seq(1.5)
+    ),
+    Test(
+      pos = Vec2D(1.5, 1.5),
+      angle = math.Pi,
+      fov = 0.0,
+      nRays = 1,
+      distances = Seq(0.5)
+    ),
+    Test(
+      pos = Vec2D(1.5, 1.5),
+      angle = math.Pi / 2 * 3,
+      fov = 0.0,
+      nRays = 1,
+      distances = Seq(0.5)
     )
   )
 
@@ -207,11 +240,12 @@ class RaycastDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
                 math.sqrt(dut.io.response.bits.dist.peek().toDouble) should be(
                   expDistance +- 0.1
                 )
+                dut.io.response.bits.tile.peek().litValue should be(1)
                 dut.io.response.ready.poke(true.B)
                 dut.clock.step()
               }
             }
-            dut.io.request.ready.expect(true.B)
+            dut.io.request.ready.peek().litValue should be(1)
           }
         }
       }
