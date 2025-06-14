@@ -37,7 +37,6 @@ class Engine extends Module {
     "h800".U(12.W) // #880000
   )
 
-
 }
 object gameEngineMain {
   def main(args: Array[String]): Unit = {
