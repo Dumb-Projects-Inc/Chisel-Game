@@ -1,8 +1,8 @@
 package gameEngine.raycast
 
 import chisel3._
-import chisel3.Mux
 import chisel3.util._
+import chisel3.experimental.BundleLiterals._
 
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.trig.TrigLUT
@@ -19,6 +19,7 @@ class RayResponse extends Bundle {
   val dist = SInt(24.W)
   val isHorizontal = Bool()
 }
+
 
 class Raycaster(maxSteps: Int = 12) extends Module {
   val io = IO(new Bundle {
@@ -183,3 +184,4 @@ class Raycaster(maxSteps: Int = 12) extends Module {
     }
   }
 }
+

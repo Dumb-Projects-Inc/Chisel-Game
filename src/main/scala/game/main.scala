@@ -37,9 +37,6 @@ class Engine extends Module {
     "h800".U(12.W) // #880000
   )
 
-  val buf = Module(new DualPaletteFrameBuffer(doomPalette))
-
-  io.vga := buf.io.vga
 
 }
 object gameEngineMain {
