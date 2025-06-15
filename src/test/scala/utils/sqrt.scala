@@ -51,6 +51,9 @@ class SqrtSpec extends AnyFunSpec with ChiselSim with Matchers {
 
     val cases = (generalCases ++ smallCases).distinct
 
+    var sumError = 0.0
+    var caseCount = 0
+
     simulate(new InverseSqrt) { dut =>
       for (input <- cases) {
         withClue(input.toString() + "\n") {
@@ -61,12 +64,22 @@ class SqrtSpec extends AnyFunSpec with ChiselSim with Matchers {
 
           dut.io.result.valid.expect(true.B)
           val result = dut.io.result.bits.peek().toDouble
-          result should be(1.0 / math.sqrt(input) +- 0.1)
+          val ideal = 1.0 / math.sqrt(input)
+          val absError = abs(result - ideal)
+          val pctError = absError / ideal * 100.0
+          sumError += pctError
+          caseCount += 1
+
+          absError should be < 0.1
+
           dut.io.result.ready.poke(true.B)
           dut.clock.step()
         }
       }
     }
+
+    val avgPctError = sumError / caseCount
+    info(f"Ran $caseCount tests, average percent error = $avgPctError%.4f%%")
   }
 
 }
