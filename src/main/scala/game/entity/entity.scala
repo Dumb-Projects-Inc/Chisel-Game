@@ -3,6 +3,8 @@ package gameEngine.entity
 import chisel3._
 import chisel3.util._
 import os.write
+import javax.swing.plaf.metal.MetalIconFactory.PaletteCloseIcon
+import gameEngine.fixed.FixedPointUtils.width
 
 class IEntity(width: Int, writeable: Boolean = false) extends Bundle {
   val screen = new Bundle {
@@ -93,4 +95,26 @@ class SpriteEntity(filename: String, width: Int) extends Entity(width) {
 
   io.visible := io.in.screen.x - posRegx < 64.U && io.in.screen.y - posRegy < 64.U && !sprite.io.transparent
   io.pixel := sprite.io.r ## sprite.io.g ## sprite.io.b
+}
+
+class PalettedSpriteEntity(
+    filename: String,
+    coordWidth: Int,
+    palette: Seq[UInt],
+    width: Int,
+    height: Int
+) extends Entity(coordWidth) {
+  val scale = IO(Input(SInt()))
+
+  val sprite = Module(new PalettedIndexSprite(filename, width, height, palette))
+  sprite.io.scale := scale
+
+  sprite.io.x := io.in.screen.x - posRegx
+  sprite.io.y := io.in.screen.y - posRegy
+
+  io.visible := (io.in.screen.x - posRegx < width.asUInt) &&
+    (io.in.screen.y - posRegy < height.asUInt) &&
+    !sprite.io.transparent
+
+  io.pixel := sprite.io.idx
 }
