@@ -42,9 +42,14 @@ class SqrtSpec extends AnyFunSpec with ChiselSim with Matchers {
   }
   it("handle random cases") {
     val random = new scala.util.Random(42) // Fixed seed
-    val cases = Seq.fill(1000)(
-      random.nextDouble() * 256
+    val generalCases = Seq.fill(200)(
+      random.nextDouble() * 1024
     )
+    val smallCases = Seq.fill(100)(
+      random.nextDouble() * 10
+    )
+
+    val cases = (generalCases ++ smallCases).distinct
 
     simulate(new InverseSqrt) { dut =>
       for (input <- cases) {
