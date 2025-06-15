@@ -12,7 +12,7 @@ import gameEngine.entity.library.WallEntity
 import gameEngine.vec2.Vec2._
 import gameEngine.vec2.Vec2
 import gameEngine.entity.library.SquareEntity
-import gameEngine.entity.library.FinalWallEntity
+import gameEngine.entity.library.WallEntity
 import gameEngine.entity.library.SmileyEntity
 
 class WallBandDemo extends Module {
@@ -59,7 +59,7 @@ class WallBandDemo extends Module {
     )
   )
 
-  val wall = Module(new FinalWallEntity(doomPalette.length, 8, points.length))
+  val wall = Module(new WallEntity(doomPalette.length, 8, points.length))
   wall.io.points := points
   wall.io.x := DontCare
   wall.io.y := DontCare
