@@ -16,14 +16,14 @@ object InverseSqrt {
  * y_(n+1) = y_n * (3 - x*y_n^2)/2
  * Here x is the input, y_n is the current guess
  * */
-class InverseSqrt(iterations: Int = 10) extends Module {
+class InverseSqrt(iterations: Int = 4) extends Module {
   val io = IO(new Bundle {
     val input = Flipped(Decoupled(SInt(24.W)))
     val result = Decoupled(SInt(24.W))
   })
   // LUT for initial guess, based on most significant bit
-  val lutVec = VecInit.tabulate(64) { i =>
-    toFP(1.0 / math.sqrt(i + 1))
+  val lutVec = VecInit.tabulate(24) { i =>
+    toFP(1.0 / math.sqrt(math.pow(2, 12 - i)))
   }
 
   val x = RegInit(0.S(24.W))
@@ -43,8 +43,7 @@ class InverseSqrt(iterations: Int = 10) extends Module {
       io.input.ready := true.B
       when(io.input.valid) {
         x := io.input.bits
-        val idx = io.input.bits(23, 12) - 1.U
-        dontTouch(idx)
+        val idx = PriorityEncoder(Reverse(io.input.bits.asUInt))
         y := lutVec(idx)
         i := 0.U
         state := S.compute

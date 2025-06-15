@@ -7,6 +7,14 @@ import gameEngine.fixed.InverseSqrt
 import gameEngine.fixed.FixedPointUtils._
 import org.scalatest.matchers.should.Matchers
 
+import chisel3._
+import chisel3.util._
+import scala.math._
+
+/** Inverse square root using piecewise-linear LUT approximation, implemented
+  * with SInt fixed-point format.
+  */
+
 class SqrtSpec extends AnyFunSpec with ChiselSim with Matchers {
   describe("Sqrt") {
     it("compute the inverse sqrt") {
@@ -34,9 +42,9 @@ class SqrtSpec extends AnyFunSpec with ChiselSim with Matchers {
   }
   it("handle random cases") {
     val random = new scala.util.Random(42) // Fixed seed
-    val cases = Seq.fill(200)(
-      random.nextDouble() * 64
-    ) // Random inputs between 1 and 300
+    val cases = Seq.fill(1000)(
+      random.nextDouble() * 256
+    )
 
     simulate(new InverseSqrt) { dut =>
       for (input <- cases) {
