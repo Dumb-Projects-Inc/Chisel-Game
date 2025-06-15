@@ -5,27 +5,28 @@ import chisel3.util._
 import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
 
-class WallEntity(numColors: Int, color: Int, numPoints: Int) extends Module {
+class WallEntity(numColors: Int, colorIdx: Int, numPoints: Int) extends Module {
+  private val width = 320
+  private val height = 240
+  val colorW = log2Ceil(numColors)
+
   val io = IO(new Bundle {
-    val x = Input(UInt(9.W))
-    val y = Input(UInt(9.W))
-    val points = Input(Vec(numPoints, UInt(9.W)))
+    val x = Input(UInt(log2Ceil(width).W))
+    val y = Input(UInt(log2Ceil(height).W))
+    val heights = Input(Vec(numPoints, UInt(log2Ceil(height).W)))
     val visible = Output(Bool())
-    val colorOut = Output(UInt(log2Ceil(numColors).W))
+    val color = Output(UInt(colorW.W))
   })
 
-  val segmentBits = log2Ceil(numPoints)
-  val segmentWidth = (320 / numPoints).U
+  val segmentWidth = (width / numPoints).U
   val segmentIdx = io.x / segmentWidth
 
-  val clampedIdx = RegNext(Mux(segmentIdx >= numPoints.U, (numPoints - 1).U, segmentIdx))
-  val height = RegNext(io.points(clampedIdx))
+  val h = io.heights(segmentIdx)
 
-  val topY = 120.U - (height >> 1)
-  val botY = 120.U + (height >> 1)
+  val top = 120.U - (h / 2.U)
+  val bot = 120.U + (h / 2.U)
 
-  val visible = io.y >= topY && io.y < botY
-
-  io.visible := RegNext(visible)
-  io.colorOut := RegNext(Mux(visible, color.U, 0.U))
+  val vis = (io.y >= top) && (io.y < bot)
+  io.visible := vis
+  io.color := Mux(vis, colorIdx.U, DontCare)
 }
