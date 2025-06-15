@@ -8,7 +8,6 @@ import circt.stage.{ChiselStage, FirtoolOption}
 
 import gameEngine.screen.VGAInterface
 import gameEngine.framebuffer.DualPaletteFrameBuffer
-import gameEngine.entity.library.WallEntity
 
 class Engine extends Module {
   val io = IO(new Bundle {
