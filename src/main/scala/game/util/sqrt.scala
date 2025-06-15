@@ -4,12 +4,6 @@ import chisel3._
 import chisel3.util._
 import gameEngine.fixed.FixedPointUtils._
 
-object InverseSqrt {
-  object State extends ChiselEnum {
-    val idle = Value
-  }
-}
-
 /* This module implements an approximator for the inverse squareroot.
  *
  * It is approximated by newtons method down to a iterative algo:
@@ -31,9 +25,13 @@ class InverseSqrt(iterations: Int = 4) extends Module {
   val i = RegInit(0.U(log2Ceil(iterations).W))
 
   object S extends ChiselEnum {
-    val idle, compute, done = Value
+    val idle, compute0, compute1, compute2, done = Value
   }
   val state = RegInit(S.idle)
+
+  // Intermediate registers
+  val y2 = RegInit(0.S(24.W))
+  val halfTimesy2 = RegInit(0.S(24.W))
 
   io.input.ready := false.B
   io.result.valid := false.B
@@ -46,16 +44,26 @@ class InverseSqrt(iterations: Int = 4) extends Module {
         val idx = PriorityEncoder(Reverse(io.input.bits.asUInt))
         y := lutVec(idx)
         i := 0.U
-        state := S.compute
+        state := S.compute0
       }
     }
-    is(S.compute) {
-      val threeHalfs = toFP(1.5)
+    is(S.compute0) {
+      y2 := y.fpMul(y)
+      state := S.compute1
+    }
+    is(S.compute1) {
       val halfX = x >> 1.U
-      y := y.fpMul(threeHalfs - halfX.fpMul(y.fpMul(y)))
+      halfTimesy2 := halfX.fpMul(y2)
+      state := S.compute2
+    }
+    is(S.compute2) {
+      val threeHalfs = toFP(1.5)
+      y := y.fpMul(threeHalfs - halfTimesy2)
       i := i + 1.U
       when(i === (iterations - 1).U) {
         state := S.done
+      }.otherwise {
+        state := S.compute0
       }
     }
     is(S.done) {
