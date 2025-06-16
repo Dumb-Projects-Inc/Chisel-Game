@@ -9,8 +9,6 @@ import gameEngine.trig.TrigLUT
 import gameEngine.vec2._
 import gameEngine.vec2.Vec2._
 
-
-
 class RayHit(nTiles: Int) extends Bundle {
   val dist = SInt(24.W)
   val tile = UInt(log2Ceil(nTiles).W)
@@ -70,6 +68,9 @@ class RaycastDriver(
       Seq(0.0)
     }
   val offsetsVec = VecInit.tabulate(nRays) { (i) => (toFP(offsets(i))) }
+  val cos2LUT: Vec[SInt] = VecInit(
+    offsets.map(o => toFP(math.cos(o) * math.cos(o)))
+  )
 
   val mapVec = VecInit.tabulate(map.length, map(0).length) { (x, y) =>
     map(x)(y).U
@@ -179,7 +180,8 @@ class RaycastDriver(
       }
     }
     is(S.emit) {
-      io.response.bits.dist := currentRayDist
+      val c2 = cos2LUT(currentRayOffsetIdx - 1.U)
+      io.response.bits.dist := currentRayDist.fpMul(c2) // Fish eye correction
       io.response.bits.tile := currentRayTile
       io.response.bits.isHorizontal := currentRayHorizontal
       io.response.bits.angleOffset := currentRayAngleOffset
