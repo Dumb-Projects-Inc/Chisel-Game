@@ -14,7 +14,7 @@ import gameEngine.vec2.Vec2
 import gameEngine.entity.library.WallEntity
 import gameEngine.entity.library.SmileyEntity
 
-class WallBandDemo extends Module {
+class WallDemo extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
   })
@@ -112,7 +112,7 @@ class WallBandDemo extends Module {
     }
   }
 }
-object WallBandDemoMain {
+object WallDemoMain {
   def main(args: Array[String]): Unit = {
     (new ChiselStage).execute(
       Array(
@@ -123,7 +123,7 @@ object WallBandDemoMain {
         "--split-verilog"
       ),
       Seq(
-        ChiselGeneratorAnnotation(() => new WallBandDemo),
+        ChiselGeneratorAnnotation(() => new WallDemo),
         FirtoolOption("--disable-all-randomization")
       )
     )
