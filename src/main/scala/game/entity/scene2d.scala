@@ -20,10 +20,10 @@ class Scene2D extends Module {
   )
 
   val map = VecInit.tabulate(4, 4) { (x, y) => _map(x)(y).B }
-  val player = Module(new PlayerEntity(0.0, 0.0, 0.0))
+  val player = Module(new PlayerEntity(0.0, 0.0, 0.0, _map))
 
   // Entity management
-  val idle :: updatePlayer :: updateEnemies :: render :: wallheight :: draw :: Nil =
+  val idle :: updatePlayer :: updateEnemies :: render :: draw :: Nil =
     Enum(5)
   val state = RegInit(idle)
 
@@ -43,9 +43,6 @@ class Scene2D extends Module {
     }
     is(render) {
       // Prepare rendering data
-      state := wallheight
-    }
-    is(wallheight) {
       state := draw
     }
     is(draw) {
