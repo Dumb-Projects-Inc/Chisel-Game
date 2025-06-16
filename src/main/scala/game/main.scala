@@ -49,27 +49,15 @@ class Engine extends Module {
   val rc = Module(new RaycastDriver)
   val invsqrt = Module(new InverseSqrt)
 
-  rc.io.request.valid := true.B
-  rc.io.request.bits.start := Vec2(toFP(1.5), toFP(1.5))
-  rc.io.request.bits.angle := toFP(math.Pi / 4)
-
   invsqrt.io.input.bits := rc.io.response.bits.dist
   invsqrt.io.input.valid := rc.io.response.valid
   rc.io.response.ready := invsqrt.io.input.ready
-
-  val (idx, wrap) = Counter(invsqrt.io.result.valid, 320)
-
-  invsqrt.io.result.ready := true.B
-  when(invsqrt.io.result.valid) {
-    heights(idx) := invsqrt.io.result.bits.fpMul(toFP(128.0))(23, 12)
-  }
-
   val wall = Module(new WallEntity(doomPalette.length, 8, 320))
   wall.io.heights := heights
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
 
   object S extends ChiselEnum {
-    val filling, waiting = Value
+    val idle, calculate, filling, waiting = Value
   }
 
   val state = RegInit(S.filling)
@@ -87,7 +75,34 @@ class Engine extends Module {
   wall.io.x := DontCare
   wall.io.y := DontCare
 
+  val idx = RegInit(0.U(16.W))
+
+  invsqrt.io.result.ready := false.B
+  rc.io.request.valid := false.B
+  rc.io.request.bits.angle := DontCare
+  rc.io.request.bits.start := DontCare
   switch(state) {
+    is(S.idle) {
+      rc.io.request.valid := true.B
+      rc.io.request.bits.start := Vec2(toFP(1.5), toFP(1.5))
+      rc.io.request.bits.angle := toFP(math.Pi / 4)
+      when(rc.io.request.ready) {
+        idx := 0.U
+        state := S.calculate
+      }
+    }
+    is(S.calculate) {
+
+      invsqrt.io.result.ready := true.B
+      when(invsqrt.io.result.valid) {
+        heights(idx) := invsqrt.io.result.bits.fpMul(toFP(128.0))(23, 12)
+        idx := idx + 1.U
+      }
+      when(idx === 318.U) {
+        state := S.filling
+      }
+
+    }
     is(S.filling) {
       buf.io.x := x
       buf.io.y := y
@@ -103,7 +118,7 @@ class Engine extends Module {
     is(S.waiting) {
       buf.io.valid := true.B
       when(buf.io.newFrame) {
-        state := S.filling
+        state := S.idle
       }
     }
   }
