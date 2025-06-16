@@ -1,7 +1,7 @@
 module PLLBlackBox (
     input  wire clock,     // 100 MHz input clock
     input  wire reset,         // Reset button (active high)
-    output wire clk25MHz,
+    output wire clk50MHz,
     output wire locked
 );
 
@@ -9,7 +9,7 @@ module PLLBlackBox (
     clk_wiz_0 pll_inst (
         .clk_in1(clock),
         .reset(reset),
-        .clk_out1(clk25MHz),
+        .clk_out1(clk50MHz),
         .locked(locked)
     );
 
