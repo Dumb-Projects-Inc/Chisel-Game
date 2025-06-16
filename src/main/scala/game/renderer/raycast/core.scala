@@ -173,5 +173,4 @@ class RaycasterCore(map: Seq[Seq[Int]] = Defaults.map, nTiles: Int = 2)
       }
     }
   }
-
 }
