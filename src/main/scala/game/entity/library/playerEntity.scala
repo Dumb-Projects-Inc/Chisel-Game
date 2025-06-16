@@ -35,6 +35,7 @@ class PlayerEntity(
 
   val posReg = RegInit(Vec2(toFP(init_x), toFP(init_y)))
   val angleReg = RegInit(toFP(init_angle))
+  // TODO: allow for maps with no walls
   val wallCoordinates = VecInit(
     map.zipWithIndex.flatMap { case (row, y) =>
       row.zipWithIndex.collect { case (1, x) =>
@@ -65,22 +66,29 @@ class PlayerEntity(
   }
 
   def rotate(angleDelta: SInt): Unit = {
-    angleReg := angleReg + angleDelta
+    val newAngle = angleReg + angleDelta
     // Normalize angle to [0, 2π)
-    when(angleReg < toFP(0)) {
-      angleReg := angleReg + toFP(2 * math.Pi)
-    }.elsewhen(angleReg >= toFP(2 * math.Pi)) {
-      angleReg := angleReg - toFP(2 * math.Pi)
+    when(newAngle < toFP(0)) {
+      angleReg := newAngle + toFP(2 * math.Pi)
+    }.elsewhen(newAngle >= toFP(2 * math.Pi)) {
+      angleReg := newAngle - toFP(2 * math.Pi)
+    }.otherwise {
+      angleReg := newAngle
     }
 
   }
 
-  switch(io.action) {
+  // Pipeline for trigLUT
+  val actionReg = RegNext(io.action, PlayerAction.idle)
+  val actionArgReg = Reg(SInt(FixedPointUtils.width.W))
+  actionArgReg := io.actionArg
+
+  switch(actionReg) {
     is(PlayerAction.idle) {
       // Do nothing, player is idle
     }
     is(PlayerAction.moveForward) {
-      val speed = io.actionArg
+      val speed = actionArgReg
       val moveDelta = Vec2(
         triglut.io.cos.fpMul(speed),
         triglut.io.sin.fpMul(speed)
@@ -112,9 +120,9 @@ class PlayerEntity(
       move(moveDelta)
     }
     is(PlayerAction.turn) {
-      rotate(io.actionArg)
+      rotate(actionArgReg)
     }
   }
-
-  move(Vec2(toFP(1), toFP(1)))
+  io.pos := posReg
+  io.angle := angleReg
 }
