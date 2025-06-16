@@ -109,7 +109,8 @@ class PlayerEntitySpec extends AnyFunSpec with ChiselSim with Matchers {
 
         dut.io.angle.expect(toFP(math.Pi / 4.0))
         val (x, y) = getPlayerPos(dut)
-        print(s"Player position after moving: ($x, $y)\n")
+        x should be((math.cos(math.Pi / 4) + 1) +- 0.1)
+        y should be((math.cos(math.Pi / 4) + 1) +- 0.1)
 
       }
     }
