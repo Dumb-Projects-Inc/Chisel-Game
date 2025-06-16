@@ -12,10 +12,43 @@ import gameEngine.vec2.Vec2._
 class RayHit(nTiles: Int) extends Bundle {
   val dist = SInt(24.W)
   val tile = UInt(log2Ceil(nTiles).W)
+  val isHorizontal = Bool()
+  val angleOffset = SInt(24.W)
 }
 
-class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
-    extends Module {
+object RayHit {
+  def apply(nTiles: Int) = {
+    val w = Wire(new RayHit(nTiles))
+    w.dist := 0.S(24.W)
+    w.tile := 0.U(log2Ceil(nTiles).W)
+    w.isHorizontal := false.B
+    w.angleOffset := 0.S(24.W)
+    w
+  }
+
+  def apply(
+      nTiles: Int,
+      dist: SInt,
+      tile: UInt,
+      isHorizontal: Bool,
+      angleOffset: SInt
+  ) = {
+    val w = Wire(new RayHit(nTiles))
+    w.dist := dist
+    w.tile := tile
+    w.isHorizontal := isHorizontal
+    w.angleOffset := angleOffset
+    w
+  }
+}
+
+class RaycastDriver(
+    fov: Double = 2,
+    nRays: Int = 12,
+    nTiles: Int = 2,
+    map: Seq[Seq[Int]] = Defaults.map,
+    enableFovCorrection: Boolean = true
+) extends Module {
   val io = IO(new Bundle {
     val request = Flipped(Decoupled(new RayRequest))
     val response = Decoupled(new RayHit(nTiles))
@@ -36,19 +69,15 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
       Seq(0.0)
     }
   val offsetsVec = VecInit.tabulate(nRays) { (i) => (toFP(offsets(i))) }
-
-  val _map = Seq(
-    Seq(1, 1, 1, 1),
-    Seq(1, 0, 0, 1),
-    Seq(1, 0, 0, 1),
-    Seq(1, 1, 1, 1)
+  val cos2LUT: Vec[SInt] = VecInit(
+    offsets.map(o => toFP(math.cos(o) * math.cos(o)))
   )
 
-  val map = VecInit.tabulate(4, 4) { (x, y) => _map(x)(y).U }
+  val mapVec = VecInit.tabulate(map.length, map(0).length) { (x, y) =>
+    map(x)(y).U
+  }
 
   val raycaster = Module(new Raycaster)
-  val queue = Module(new Queue(new RayHit(nTiles), 4))
-  io.response <> queue.io.deq
 
   val trig = Module(new TrigLUT)
   val angleReg = RegInit(0.S(24.W))
@@ -73,6 +102,7 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
   val currentRayDist = RegInit(0.S(24.W))
   val currentRayHorizontal = RegInit(false.B)
   val currentRayTile = RegInit(0.U(log2Ceil(nTiles).W))
+  val currentRayAngleOffset = RegInit(0.S(24.W))
 
   object S extends ChiselEnum {
     val idle, initRay, step, check, emit = Value
@@ -83,10 +113,14 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
   raycaster.io.out.ready := false.B
   raycaster.io.stop := false.B
 
-  queue.io.enq.valid := false.B
-  queue.io.enq.bits := DontCare
   raycaster.io.in.valid := false.B
   raycaster.io.in.bits := DontCare
+
+  io.response.valid := false.B
+  io.response.bits.dist := DontCare
+  io.response.bits.tile := DontCare
+  io.response.bits.angleOffset := DontCare
+  io.response.bits.isHorizontal := DontCare
 
   switch(state) {
     is(S.idle) {
@@ -100,10 +134,12 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
     }
     is(S.initRay) {
       raycaster.io.in.bits.start := requestReg.start
-      val angle = requestReg.angle + offsetsVec(currentRayOffsetIdx)
+      val angleOffset = offsetsVec(currentRayOffsetIdx)
+      val angle = requestReg.angle + angleOffset
       raycaster.io.in.bits.angle := angle
       angleReg := angle
       raycaster.io.in.valid := true.B
+      currentRayAngleOffset := angleOffset
       when(raycaster.io.in.ready) {
         currentRayOffsetIdx := currentRayOffsetIdx + 1.U
         state := S.step
@@ -135,7 +171,7 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
         )
         Vec2(idxFP.x(23, 12), idxFP.y(23, 12))
       }
-      val tileHit = map(hitIdx.y)(hitIdx.x)
+      val tileHit = mapVec(hitIdx.y)(hitIdx.x)
       when(tileHit =/= 0.U) {
         raycaster.io.stop := true.B
         currentRayTile := tileHit
@@ -145,10 +181,20 @@ class RaycastDriver(fov: Double = 2, nRays: Int = 12, nTiles: Int = 2)
       }
     }
     is(S.emit) {
-      queue.io.enq.valid := true.B
-      queue.io.enq.bits.dist := currentRayDist
-      queue.io.enq.bits.tile := currentRayTile
-      when(queue.io.enq.ready) {
+      val outDist = {
+        if (enableFovCorrection) {
+          val c2 = cos2LUT(currentRayOffsetIdx - 1.U)
+          currentRayDist.fpMul(c2)
+        } else {
+          currentRayDist
+        }
+      }
+      io.response.bits.dist := outDist // Fish eye correction
+      io.response.bits.tile := currentRayTile
+      io.response.bits.isHorizontal := currentRayHorizontal
+      io.response.bits.angleOffset := currentRayAngleOffset
+      io.response.valid := true.B
+      when(io.response.ready) {
         when(currentRayOffsetIdx === nRays.U) {
           state := S.idle
         }.otherwise {

@@ -46,7 +46,7 @@ class PalettedIndexSprite(
     filepath: String,
     width: Int,
     height: Int,
-    palette: Seq[UInt],
+    palette: Seq[UInt]
 ) extends Module {
   val io = IO(new Bundle {
     val x, y = Input(UInt(log2Ceil(width).W))
@@ -93,7 +93,7 @@ class PalettedIndexSprite(
     quantT(r * width + c).B
   }
 
-  val sx_s = io.x.asSInt * 100.S / io.scale 
+  val sx_s = io.x.asSInt * 100.S / io.scale
   val sy_s = io.y.asSInt * 100.S / io.scale
 
   val sx = Mux(sx_s < 0.S, 0.U, (sx_s.asUInt min (width - 1).U))

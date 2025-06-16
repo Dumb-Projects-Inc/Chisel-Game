@@ -29,7 +29,9 @@ class SmileyEntity(width: Int, palette: Seq[UInt]) extends Module {
   val posX = RegInit(0.U(width.W))
   val posY = RegInit(0.U(width.W))
 
-  val sprite = Module(new PalettedSpriteEntity("./smiley-64.png", width, palette, 64, 64))
+  val sprite = Module(
+    new PalettedSpriteEntity("./smiley-64.png", width, palette, 64, 64)
+  )
   sprite.scale := io.scale
 
   when(io.setPos.wrEn) {
