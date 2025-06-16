@@ -9,6 +9,11 @@ import circt.stage.{ChiselStage, FirtoolOption}
 import gameEngine.screen.VGAInterface
 import gameEngine.framebuffer.DualPaletteFrameBuffer
 import gameEngine.pll.PLLBlackBox
+import gameEngine.entity.library.WallEntity
+import gameEngine.raycast.RaycastDriver
+import gameEngine.fixed.InverseSqrt
+import gameEngine.fixed.FixedPointUtils._
+import gameEngine.vec2.Vec2
 
 class Engine extends Module {
   val io = IO(new Bundle {
@@ -37,6 +42,72 @@ class Engine extends Module {
     "h800".U(12.W) // #880000
   )
 
+  val heights = RegInit(
+    VecInit(Seq.fill(320)(0.U(16.W)))
+  )
+
+  val rc = Module(new RaycastDriver)
+  val invsqrt = Module(new InverseSqrt)
+
+  rc.io.request.valid := true.B
+  rc.io.request.bits.start := Vec2(toFP(1.5), toFP(1.5))
+  rc.io.request.bits.angle := toFP(math.Pi / 4)
+
+  invsqrt.io.input.bits := rc.io.response.bits.dist
+  invsqrt.io.input.valid := rc.io.response.valid
+  rc.io.response.ready := invsqrt.io.input.ready
+
+  val (idx, wrap) = Counter(invsqrt.io.result.valid, 320)
+
+  invsqrt.io.result.ready := true.B
+  when(invsqrt.io.result.valid) {
+    heights(idx) := invsqrt.io.result.bits.fpMul(toFP(128.0))(23, 12)
+  }
+
+  val wall = Module(new WallEntity(doomPalette.length, 8, 320))
+  wall.io.heights := heights
+  val buf = Module(new DualPaletteFrameBuffer(doomPalette))
+
+  object S extends ChiselEnum {
+    val filling, waiting = Value
+  }
+
+  val state = RegInit(S.filling)
+
+  val (x, xWrap) = Counter(state === S.filling, 320)
+  val (y, yWrap) = Counter(xWrap && (state === S.filling), 240)
+
+  io.vga := buf.io.vga
+
+  buf.io.x := DontCare
+  buf.io.y := DontCare
+  buf.io.dataIn := DontCare
+  buf.io.wEnable := false.B
+  buf.io.valid := false.B
+  wall.io.x := DontCare
+  wall.io.y := DontCare
+
+  switch(state) {
+    is(S.filling) {
+      buf.io.x := x
+      buf.io.y := y
+      buf.io.wEnable := true.B
+
+      wall.io.x := x
+      wall.io.y := y
+
+      buf.io.dataIn := Mux(wall.io.visible, wall.io.color, 0.U)
+
+      when(xWrap && yWrap) { state := S.waiting }
+    }
+    is(S.waiting) {
+      buf.io.valid := true.B
+      when(buf.io.newFrame) {
+        state := S.filling
+      }
+    }
+  }
+
 }
 
 class TopModule( /*game input when io works*/ ) extends Module {
@@ -57,10 +128,8 @@ class TopModule( /*game input when io works*/ ) extends Module {
   // $COVERAGE-ON$
 
   withClockAndReset(clk50MHz, !locked) {
-    // val engine = Module( /*Init Module*/ )
-
-    // val io = IO(engine.io.cloneType)
-    // io <> engine.io
+    val engine = Module(new Engine)
+    io.vga := engine.io.vga
   }
 }
 
@@ -76,7 +145,7 @@ object gameEngineMain {
         "--split-verilog"
       ),
       Seq(
-        ChiselGeneratorAnnotation(() => new Engine),
+        ChiselGeneratorAnnotation(() => new TopModule),
         FirtoolOption("--disable-all-randomization")
       )
     )

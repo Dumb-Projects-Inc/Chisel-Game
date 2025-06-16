@@ -59,7 +59,7 @@ class WallDemo extends Module {
   )
 
   val wall = Module(new WallEntity(doomPalette.length, 8, points.length))
-  wall.io.points := points
+  wall.io.heights := points
   wall.io.x := DontCare
   wall.io.y := DontCare
 
@@ -67,7 +67,7 @@ class WallDemo extends Module {
   val state = RegInit(filling)
   val (x, xWrap) = Counter(state === filling, 320)
   val (y, yWrap) = Counter(xWrap && (state === filling), 240)
-  
+
   val (gameCount, gameTick) = Counter(true.B, 2000000)
   when(gameTick) {
     points := VecInit(points.map(_ + 1.U))
@@ -97,7 +97,7 @@ class WallDemo extends Module {
       buf.io.dataIn := PriorityMux(
         Seq(
           bob.io.visible -> bob.io.pixel,
-          wall.io.visible -> wall.io.colorOut,
+          wall.io.visible -> wall.io.color,
           true.B -> 0.U
         )
       )
