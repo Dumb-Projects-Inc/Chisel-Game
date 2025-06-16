@@ -19,7 +19,7 @@ import gameEngine.screen.VGAInterface
 import gameEngine.framebuffer.DualPaletteFrameBuffer
 import gameEngine.pll.PLLBlackBox
 import gameEngine.entity.library.WallEntity
-import gameEngine.raycast.RaycastDriver
+import gameEngine.raycast._
 import gameEngine.fixed.InverseSqrt
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
@@ -60,6 +60,7 @@ class Engine extends Module {
     Seq(1, 0, 0, 1),
     Seq(1, 1, 1, 1)
   )
+  val nTiles = 2
 
   val (tickCnt, tick) = Counter(true.B, 2000000)
   val playerAngle = RegInit(toFP(math.Pi / 4))
@@ -73,24 +74,11 @@ class Engine extends Module {
     }
   }
 
-  val heights = RegInit(
-    VecInit(Seq.fill(320)(0.U(16.W)))
-  )
-
+  val rc = Module(new RaycasterCore)
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
-
   val wall = Module(new WallEntity(doomPalette.length, 8, 320))
-  wall.io.heights := heights
-
-  val rc = Module(new RaycastDriver(fov = 2, nRays = 320, map = map))
-  val distQ = Module(new Queue(SInt(24.W), 4))
-  val invsqrt = Module(new InverseSqrt)
-
-  distQ.io.enq.valid := rc.io.response.valid
-  distQ.io.enq.bits := rc.io.response.bits.dist
-  rc.io.response.ready := distQ.io.enq.ready
-
-  distQ.io.deq <> invsqrt.io.input
+  val heightsReg = RegInit(VecInit(Seq.fill(320)(0.U(log2Ceil(240).W))))
+  wall.io.heights := heightsReg
 
   object S extends ChiselEnum {
     val idle, calculate, filling, waiting = Value
@@ -108,35 +96,33 @@ class Engine extends Module {
   buf.io.dataIn := DontCare
   buf.io.wEnable := false.B
   buf.io.valid := false.B
+
   wall.io.x := DontCare
   wall.io.y := DontCare
 
+  rc.io.in.bits := DontCare
+  rc.io.columns.ready := false.B
+  rc.io.in.valid := false.B
+
   val idx = RegInit(0.U(16.W))
 
-  invsqrt.io.result.ready := false.B
-  rc.io.request.valid := false.B
-  rc.io.request.bits.angle := DontCare
-  rc.io.request.bits.start := DontCare
   switch(state) {
     is(S.idle) {
-      rc.io.request.valid := true.B
-      rc.io.request.bits.start := Vec2(toFP(1.5), toFP(1.5))
-      rc.io.request.bits.angle := playerAngle
-      when(rc.io.request.ready) {
+      rc.io.in.valid := true.B
+      rc.io.in.bits.start := Vec2(toFP(1.5), toFP(1.5))
+      rc.io.in.bits.angle := playerAngle
+      when(rc.io.in.ready) {
         idx := 0.U
         state := S.calculate
       }
     }
     is(S.calculate) {
-
-      invsqrt.io.result.ready := true.B
-      when(invsqrt.io.result.valid) {
-        heights(idx) := invsqrt.io.result.bits.fpMul(toFP(128.0))(23, 12)
-        idx := idx + 1.U
-
-        when(idx === 319.U) {
-          state := S.filling
+      rc.io.columns.ready := true.B
+      when(rc.io.columns.valid) {
+        for (i <- 0 until 320) {
+          heightsReg(i) := rc.io.columns.bits(i).height
         }
+        state := S.filling
       }
 
     }

@@ -9,14 +9,7 @@ import gameEngine.trig.TrigLUT
 import gameEngine.vec2._
 import gameEngine.vec2.Vec2._
 
-object Defaults {
-  val map = Seq(
-    Seq(1, 1, 1, 1),
-    Seq(1, 0, 0, 1),
-    Seq(1, 0, 0, 1),
-    Seq(1, 1, 1, 1)
-  )
-}
+
 
 class RayHit(nTiles: Int) extends Bundle {
   val dist = SInt(24.W)
@@ -32,6 +25,22 @@ object RayHit {
     w.tile := 0.U(log2Ceil(nTiles).W)
     w.isHorizontal := false.B
     w.angleOffset := 0.S(24.W)
+    w
+  }
+
+  def apply(
+      nTiles: Int,
+      dist: SInt,
+      tile: UInt,
+      isHorizontal: Bool,
+      angleOffset: SInt
+  ) = {
+    val w = Wire(new RayHit(nTiles))
+    w.dist := dist
+    w.tile := tile
+    w.isHorizontal := isHorizontal
+    w.angleOffset := angleOffset
+    w
   }
 }
 
@@ -39,7 +48,7 @@ class RaycastDriver(
     fov: Double = 2,
     nRays: Int = 12,
     nTiles: Int = 2,
-    map: Seq[Seq[Int]] = Defaults.map
+    map: Seq[Seq[Int]]
 ) extends Module {
   val io = IO(new Bundle {
     val request = Flipped(Decoupled(new RayRequest))
@@ -62,7 +71,9 @@ class RaycastDriver(
     }
   val offsetsVec = VecInit.tabulate(nRays) { (i) => (toFP(offsets(i))) }
 
-  val mapVec = VecInit.tabulate(4, 4) { (x, y) => map(x)(y).U }
+  val mapVec = VecInit.tabulate(map.length, map(0).length) { (x, y) =>
+    map(x)(y).U
+  }
 
   val raycaster = Module(new Raycaster)
 
@@ -89,6 +100,7 @@ class RaycastDriver(
   val currentRayDist = RegInit(0.S(24.W))
   val currentRayHorizontal = RegInit(false.B)
   val currentRayTile = RegInit(0.U(log2Ceil(nTiles).W))
+  val currentRayAngleOffset = RegInit(0.S(24.W))
 
   object S extends ChiselEnum {
     val idle, initRay, step, check, emit = Value
@@ -105,6 +117,8 @@ class RaycastDriver(
   io.response.valid := false.B
   io.response.bits.dist := DontCare
   io.response.bits.tile := DontCare
+  io.response.bits.angleOffset := DontCare
+  io.response.bits.isHorizontal := DontCare
 
   switch(state) {
     is(S.idle) {
@@ -118,10 +132,12 @@ class RaycastDriver(
     }
     is(S.initRay) {
       raycaster.io.in.bits.start := requestReg.start
-      val angle = requestReg.angle + offsetsVec(currentRayOffsetIdx)
+      val angleOffset = offsetsVec(currentRayOffsetIdx)
+      val angle = requestReg.angle + angleOffset
       raycaster.io.in.bits.angle := angle
       angleReg := angle
       raycaster.io.in.valid := true.B
+      currentRayAngleOffset := angleOffset
       when(raycaster.io.in.ready) {
         currentRayOffsetIdx := currentRayOffsetIdx + 1.U
         state := S.step
@@ -165,6 +181,8 @@ class RaycastDriver(
     is(S.emit) {
       io.response.bits.dist := currentRayDist
       io.response.bits.tile := currentRayTile
+      io.response.bits.isHorizontal := currentRayHorizontal
+      io.response.bits.angleOffset := currentRayAngleOffset
       io.response.valid := true.B
       when(io.response.ready) {
         when(currentRayOffsetIdx === nRays.U) {
