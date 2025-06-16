@@ -44,21 +44,21 @@ class PlayerEntitySpec extends AnyFunSpec with ChiselSim with Matchers {
         dut.io.action.poke(PlayerAction.turn)
         // mov 4/pi
         dut.io.actionArg.poke(toFP(math.Pi / 4.0))
-        dut.clock.step(2)
+        dut.clock.step(2) // latch then exec
 
         dut.io.angle.expect(toFP(math.Pi / 4.0))
-        dut.clock.step()
+        dut.clock.step(2)
         dut.io.angle.expect(toFP(math.Pi / 2.0))
-        dut.clock.step()
+        dut.clock.step(2)
 
         dut.io.angle.expect(toFP(3 * math.Pi / 4))
-        dut.io.actionArg.poke(toFP(math.Pi))
 
-        dut.clock.step()
+        dut.clock.step(2)
         dut.io.angle.expect(toFP(math.Pi))
-        dut.clock.step()
+        dut.io.actionArg.poke(toFP(math.Pi))
+        dut.clock.step(2)
         dut.io.angle.expect(0) // wrap around to 0
-        dut.clock.step()
+        dut.clock.step(2)
         dut.io.angle.expect(toFP(math.Pi))
       }
     }
@@ -77,11 +77,11 @@ class PlayerEntitySpec extends AnyFunSpec with ChiselSim with Matchers {
 
         dut.io.pos.x.expect(toFP(2.0))
         dut.io.pos.y.expect(toFP(1.0))
-        dut.clock.step()
+        dut.clock.step(2)
         dut.io.pos.x.expect(toFP(3.0))
         dut.io.pos.y.expect(toFP(1.0))
         // Collision should stop the player from moving further
-        dut.clock.step()
+        dut.clock.step(2)
         val (x, y) = getPlayerPos(dut)
         dut.io.pos.x.expect(toFP(3.0), printPlayer(x, y, map))
         dut.io.pos.y.expect(toFP(1.0))
@@ -102,8 +102,6 @@ class PlayerEntitySpec extends AnyFunSpec with ChiselSim with Matchers {
       simulate(new PlayerEntity(1.0, 1.0, 0.0, map)) { dut =>
         dut.io.action.poke(PlayerAction.turn)
         dut.io.actionArg.poke(toFP(math.Pi / 4.0)) // Turn 45 degrees
-        dut.clock.step()
-        dut.io.action.poke(PlayerAction.idle)
         dut.clock.step(2)
         dut.io.action.poke(PlayerAction.moveForward)
         dut.io.actionArg.poke(toFP(1.0)) // Move forward 1 unit
