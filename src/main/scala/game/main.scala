@@ -46,7 +46,7 @@ class Engine extends Module {
     VecInit(Seq.fill(320)(0.U(16.W)))
   )
 
-  val rc = Module(new RaycastDriver)
+  val rc = Module(new RaycastDriver(fov = 2, nRays = 320))
   val invsqrt = Module(new InverseSqrt)
 
   invsqrt.io.input.bits := rc.io.response.bits.dist
@@ -60,7 +60,7 @@ class Engine extends Module {
     val idle, calculate, filling, waiting = Value
   }
 
-  val state = RegInit(S.filling)
+  val state = RegInit(S.idle)
 
   val (x, xWrap) = Counter(state === S.filling, 320)
   val (y, yWrap) = Counter(xWrap && (state === S.filling), 240)
@@ -130,7 +130,6 @@ class TopModule( /*game input when io works*/ ) extends Module {
     val vga = new VGAInterface
   })
 
-  val visible = WireDefault(false.B)
   val clk50MHz = Wire(Clock())
   val locked = Wire(Bool())
 
