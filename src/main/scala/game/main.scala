@@ -1,7 +1,16 @@
 package gameEngine
 
 import chisel3._
-import chisel3.util.{log2Ceil, Counter, switch, is, Enum, PriorityMux}
+import chisel3.util.{
+  log2Ceil,
+  Counter,
+  switch,
+  is,
+  Enum,
+  PriorityMux,
+  Queue,
+  Decoupled
+}
 import chisel3.util.PriorityMux
 import chisel3.stage.ChiselGeneratorAnnotation
 import circt.stage.{ChiselStage, FirtoolOption}
@@ -14,10 +23,13 @@ import gameEngine.raycast.RaycastDriver
 import gameEngine.fixed.InverseSqrt
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
+import gameEngine.raycast.RayHit
 
 class Engine extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
+    val lookRight = Input(Bool())
+    val lookLeft = Input(Bool())
   })
 
   val doomPalette = Seq(
@@ -42,19 +54,43 @@ class Engine extends Module {
     "h800".U(12.W) // #880000
   )
 
+  val map = Seq(
+    Seq(1, 1, 1, 1),
+    Seq(1, 0, 0, 1),
+    Seq(1, 0, 0, 1),
+    Seq(1, 1, 1, 1)
+  )
+
+  val (tickCnt, tick) = Counter(true.B, 2000000)
+  val playerAngle = RegInit(toFP(math.Pi / 4))
+  when(tick) {
+    when(io.lookLeft) {
+      playerAngle := playerAngle + toFP(0.01)
+    }
+
+    when(io.lookRight) {
+      playerAngle := playerAngle - toFP(0.01)
+    }
+  }
+
   val heights = RegInit(
     VecInit(Seq.fill(320)(0.U(16.W)))
   )
 
-  val rc = Module(new RaycastDriver(fov = 2, nRays = 320))
-  val invsqrt = Module(new InverseSqrt)
+  val buf = Module(new DualPaletteFrameBuffer(doomPalette))
 
-  invsqrt.io.input.bits := rc.io.response.bits.dist
-  invsqrt.io.input.valid := rc.io.response.valid
-  rc.io.response.ready := invsqrt.io.input.ready
   val wall = Module(new WallEntity(doomPalette.length, 8, 320))
   wall.io.heights := heights
-  val buf = Module(new DualPaletteFrameBuffer(doomPalette))
+
+  val rc = Module(new RaycastDriver(fov = 2, nRays = 320, map = map))
+  val distQ = Module(new Queue(SInt(24.W), 4))
+  val invsqrt = Module(new InverseSqrt)
+
+  distQ.io.enq.valid := rc.io.response.valid
+  distQ.io.enq.bits := rc.io.response.bits.dist
+  rc.io.response.ready := distQ.io.enq.ready
+
+  distQ.io.deq <> invsqrt.io.input
 
   object S extends ChiselEnum {
     val idle, calculate, filling, waiting = Value
@@ -85,7 +121,7 @@ class Engine extends Module {
     is(S.idle) {
       rc.io.request.valid := true.B
       rc.io.request.bits.start := Vec2(toFP(1.5), toFP(1.5))
-      rc.io.request.bits.angle := toFP(math.Pi / 4)
+      rc.io.request.bits.angle := playerAngle
       when(rc.io.request.ready) {
         idx := 0.U
         state := S.calculate
@@ -97,9 +133,10 @@ class Engine extends Module {
       when(invsqrt.io.result.valid) {
         heights(idx) := invsqrt.io.result.bits.fpMul(toFP(128.0))(23, 12)
         idx := idx + 1.U
-      }
-      when(idx === 318.U) {
-        state := S.filling
+
+        when(idx === 319.U) {
+          state := S.filling
+        }
       }
 
     }
@@ -128,6 +165,7 @@ class Engine extends Module {
 class TopModule( /*game input when io works*/ ) extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
+    val lookLeft, lookRight = Input(Bool())
   })
 
   val clk50MHz = Wire(Clock())
@@ -144,6 +182,8 @@ class TopModule( /*game input when io works*/ ) extends Module {
   withClockAndReset(clk50MHz, !locked) {
     val engine = Module(new Engine)
     io.vga := engine.io.vga
+    engine.io.lookLeft := io.lookLeft
+    engine.io.lookRight := io.lookRight
   }
 }
 
