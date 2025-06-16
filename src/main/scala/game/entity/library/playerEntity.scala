@@ -80,49 +80,67 @@ class PlayerEntity(
 
   // Pipeline for trigLUT
   val actionReg = RegNext(io.action, PlayerAction.idle)
+  // hack because regnext does not have getwidth
   val actionArgReg = Reg(SInt(FixedPointUtils.width.W))
   actionArgReg := io.actionArg
 
-  switch(actionReg) {
-    is(PlayerAction.idle) {
-      // Do nothing, player is idle
+  object S extends ChiselEnum {
+    val idle, exec = Value
+  }
+  val state = RegInit(S.idle)
+
+  val latchedAction = RegInit(PlayerAction.idle)
+  val latchedActionArg = RegInit(0.S(FixedPointUtils.width.W))
+
+  switch(state) {
+    is(S.idle) {
+      // Latch input, start executing
+      latchedAction := io.action
+      latchedActionArg := io.actionArg
+      state := S.exec
     }
-    is(PlayerAction.moveForward) {
-      val speed = actionArgReg
-      val moveDelta = Vec2(
-        triglut.io.cos.fpMul(speed),
-        triglut.io.sin.fpMul(speed)
-      )
-      move(moveDelta)
-    }
-    is(PlayerAction.moveBackward) {
-      val speed = io.actionArg
-      val moveDelta = Vec2(
-        -triglut.io.cos.fpMul(speed),
-        -triglut.io.sin.fpMul(speed)
-      )
-      move(moveDelta)
-    }
-    is(PlayerAction.strafeLeft) {
-      val speed = io.actionArg
-      val moveDelta = Vec2(
-        triglut.io.cos.fpMul(speed),
-        -triglut.io.sin.fpMul(speed)
-      )
-      move(moveDelta)
-    }
-    is(PlayerAction.strafeRight) {
-      val speed = io.actionArg
-      val moveDelta = Vec2(
-        -triglut.io.cos.fpMul(speed),
-        triglut.io.sin.fpMul(speed)
-      )
-      move(moveDelta)
-    }
-    is(PlayerAction.turn) {
-      rotate(actionArgReg)
+
+    is(S.exec) {
+      switch(latchedAction) {
+        is(PlayerAction.idle) {
+          // do nothing
+        }
+        is(PlayerAction.turn) {
+          rotate(latchedActionArg)
+        }
+        is(PlayerAction.moveForward) {
+          val delta = Vec2(
+            triglut.io.cos.fpMul(latchedActionArg),
+            triglut.io.sin.fpMul(latchedActionArg)
+          )
+          move(delta)
+        }
+        is(PlayerAction.moveBackward) {
+          val delta = Vec2(
+            -triglut.io.cos.fpMul(latchedActionArg),
+            -triglut.io.sin.fpMul(latchedActionArg)
+          )
+          move(delta)
+        }
+        is(PlayerAction.strafeLeft) {
+          val delta = Vec2(
+            triglut.io.sin.fpMul(latchedActionArg),
+            -triglut.io.cos.fpMul(latchedActionArg)
+          )
+          move(delta)
+        }
+        is(PlayerAction.strafeRight) {
+          val delta = Vec2(
+            -triglut.io.sin.fpMul(latchedActionArg),
+            triglut.io.cos.fpMul(latchedActionArg)
+          )
+          move(delta)
+        }
+      }
+      state := S.idle // go back to fetch next command
     }
   }
+
   io.pos := posReg
   io.angle := angleReg
 }
