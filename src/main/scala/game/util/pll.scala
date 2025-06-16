@@ -7,7 +7,7 @@ class PLLBlackBox extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
     val clock = Input(Clock())
     val reset = Input(Bool())
-    val clk25MHz = Output(Clock())
+    val clk50MHz = Output(Clock())
     val locked = Output(Bool())
   })
   addResource("/Pll.v")

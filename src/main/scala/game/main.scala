@@ -8,6 +8,7 @@ import circt.stage.{ChiselStage, FirtoolOption}
 
 import gameEngine.screen.VGAInterface
 import gameEngine.framebuffer.DualPaletteFrameBuffer
+import gameEngine.pll.PLLBlackBox
 
 class Engine extends Module {
   val io = IO(new Bundle {
@@ -37,6 +38,32 @@ class Engine extends Module {
   )
 
 }
+
+class TopModule( /*game input when io works*/ ) extends Module {
+  val io = IO(new Bundle {
+    val vga = new VGAInterface
+  })
+
+  val visible = WireDefault(false.B)
+  val clk50MHz = Wire(Clock())
+  val locked = Wire(Bool())
+
+  // $COVERAGE-OFF$
+  val pll = Module(new PLLBlackBox)
+  pll.io.clock := clock
+  pll.io.reset := reset
+  clk50MHz := pll.io.clk50MHz
+  locked := pll.io.locked
+  // $COVERAGE-ON$
+
+  withClockAndReset(clk50MHz, !locked) {
+    // val engine = Module( /*Init Module*/ )
+
+    // val io = IO(engine.io.cloneType)
+    // io <> engine.io
+  }
+}
+
 object gameEngineMain {
   def main(args: Array[String]): Unit = {
     // Splitting files is expected, and the blackbox will generate syntax errors if not split
