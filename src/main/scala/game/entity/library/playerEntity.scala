@@ -1,7 +1,7 @@
 package gameEngine.entity
 
 import chisel3._
-import chisel3.util._
+import chisel3.util.{switch, is}
 
 import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
