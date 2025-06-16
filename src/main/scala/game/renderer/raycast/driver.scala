@@ -46,7 +46,8 @@ class RaycastDriver(
     fov: Double = 2,
     nRays: Int = 12,
     nTiles: Int = 2,
-    map: Seq[Seq[Int]]
+    map: Seq[Seq[Int]] = Defaults.map,
+    enableFovCorrection: Boolean = true
 ) extends Module {
   val io = IO(new Bundle {
     val request = Flipped(Decoupled(new RayRequest))
@@ -180,8 +181,15 @@ class RaycastDriver(
       }
     }
     is(S.emit) {
-      val c2 = cos2LUT(currentRayOffsetIdx - 1.U)
-      io.response.bits.dist := currentRayDist.fpMul(c2) // Fish eye correction
+      val outDist = {
+        if (enableFovCorrection) {
+          val c2 = cos2LUT(currentRayOffsetIdx - 1.U)
+          currentRayDist.fpMul(c2)
+        } else {
+          currentRayDist
+        }
+      }
+      io.response.bits.dist := outDist // Fish eye correction
       io.response.bits.tile := currentRayTile
       io.response.bits.isHorizontal := currentRayHorizontal
       io.response.bits.angleOffset := currentRayAngleOffset
