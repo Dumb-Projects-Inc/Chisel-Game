@@ -66,7 +66,13 @@ class RaycasterDriverSpec extends AnyFunSpec with ChiselSim with Matchers {
   describe("RaycasterDriver") {
     it("pass general test cases") {
       for (t <- testCases) {
-        simulate(new RaycastDriver(fov = t.fov, nRays = t.nRays, enableFovCorrection = false)) { dut =>
+        simulate(
+          new RaycastDriver(
+            fov = t.fov,
+            nRays = t.nRays,
+            enableFovCorrection = false
+          )
+        ) { dut =>
           withClue(t.toString() + "\n") {
             dut.io.request.ready.expect(true.B)
             dut.io.request.bits.angle.poke(toFP(t.angle))

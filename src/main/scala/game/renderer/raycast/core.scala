@@ -98,18 +98,21 @@ class InverseSqrtStage(nTiles: Int) extends Module {
   }
 }
 
-class RaycasterCore(map: Seq[Seq[Int]] = Defaults.map, nTiles: Int = 2)
-    extends Module {
-  private val width = 320
-  private val height = 240
+class RaycasterCore(
+    map: Seq[Seq[Int]] = Defaults.map,
+    nTiles: Int = 2,
+    width: Int = 320,
+    height: Int = 240,
+    fov: Double = 1.5
+) extends Module {
 
   val io = IO(new Bundle {
     val in = Flipped(Decoupled(new RayRequest))
-    val columns = Decoupled(Vec(320, new Column(width, nTiles)))
+    val columns = Decoupled(Vec(width, new Column(width, nTiles)))
   })
 
   val rc = Module(
-    new RaycastDriver(fov = 1.5, nRays = width, map = map, nTiles = nTiles)
+    new RaycastDriver(fov = fov, nRays = width, map = map, nTiles = nTiles)
   )
   val hitQ = Module(new Queue(new RayHit(nTiles), 4))
   val invsqrt = Module(new InverseSqrtStage(nTiles))
@@ -128,7 +131,7 @@ class RaycasterCore(map: Seq[Seq[Int]] = Defaults.map, nTiles: Int = 2)
 
   val state = RegInit(S.ready)
 
-  val idx = RegInit(0.U(16.W))
+  val idx = RegInit(0.U(log2Ceil(width).W))
 
   val columns = RegInit(
     VecInit(Seq.fill(width)(Column(height, nTiles)))
@@ -160,7 +163,7 @@ class RaycasterCore(map: Seq[Seq[Int]] = Defaults.map, nTiles: Int = 2)
 
         idx := idx + 1.U
 
-        when(idx === 319.U) {
+        when(idx === (width - 1).U) {
           state := S.emit
         }
       }
