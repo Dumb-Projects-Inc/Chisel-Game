@@ -100,11 +100,12 @@ class InverseSqrtStage(nTiles: Int) extends Module {
 
 class RaycasterCore(
     map: Seq[Seq[Int]] = Defaults.map,
-    nTiles: Int = 2,
     width: Int = 320,
     height: Int = 240,
     fov: Double = 1.5
 ) extends Module {
+
+  val nTiles = map.flatten.max
 
   val io = IO(new Bundle {
     val in = Flipped(Decoupled(new RayRequest))

@@ -13,7 +13,7 @@ class RaycasterCoreSpec extends AnyFunSpec with ChiselSim with Matchers {
   val testMap = Seq(
     Seq(1, 1, 1),
     Seq(1, 0, 1),
-    Seq(1, 2, 1)
+    Seq(1, 5, 1)
   )
 
   describe("RaycasterCore") {
@@ -21,7 +21,6 @@ class RaycasterCoreSpec extends AnyFunSpec with ChiselSim with Matchers {
       simulate(
         new RaycasterCore(
           map = testMap,
-          nTiles = 3,
           width = 320,
           height = 20,
           fov = 0.2
@@ -42,7 +41,7 @@ class RaycasterCoreSpec extends AnyFunSpec with ChiselSim with Matchers {
         // every column should be clamped to height=20, tile=1, horizontal hit
         for (i <- 0 until 320) {
           dut.io.columns.bits(i).height.peek().litValue should be(20)
-          dut.io.columns.bits(i).tile.peek().litValue should be(2)
+          dut.io.columns.bits(i).tile.peek().litValue should be(5)
           dut.io.columns.bits(i).isHorizontal.peek().litToBoolean should be(
             true
           )
