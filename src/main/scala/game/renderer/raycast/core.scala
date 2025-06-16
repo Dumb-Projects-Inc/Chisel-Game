@@ -147,7 +147,9 @@ class RaycasterCore(map: Seq[Seq[Int]] = Defaults.map, nTiles: Int = 2)
       invsqrt.io.out.ready := true.B
       when(invsqrt.io.out.valid) {
         val rayHit = invsqrt.io.out.bits
-        val colHeight = rayHit.dist.fpMul(toFP(128.0))(23, 12)
+        val colHeightUnclamped = rayHit.dist.fpMul(toFP(128.0))(23, 12)
+        val colHeight =
+          Mux(colHeightUnclamped < height.U, colHeightUnclamped, height.U)
         columns(idx) := Column(
           height,
           nTiles,
