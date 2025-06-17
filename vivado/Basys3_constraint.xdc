@@ -67,10 +67,10 @@ set_property PACKAGE_PIN V16 [get_ports {io_lookRight}]
 
 ##Buttons
 set_property PACKAGE_PIN U18 [get_ports reset]						
-#set_property PACKAGE_PIN T18 [get_ports btnU]						
+set_property PACKAGE_PIN T18 [get_ports io_moveForward]						
 #set_property PACKAGE_PIN W19 [get_ports btnL]						
 #set_property PACKAGE_PIN T17 [get_ports btnR]						
-#set_property PACKAGE_PIN U17 [get_ports btnD]						
+set_property PACKAGE_PIN U17 [get_ports io_moveBackward]						
 	 
 
 

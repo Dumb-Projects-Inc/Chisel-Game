@@ -15,134 +15,40 @@ import chisel3.util.PriorityMux
 import chisel3.stage.ChiselGeneratorAnnotation
 import circt.stage.{ChiselStage, FirtoolOption}
 
-import gameEngine.screen.VGAInterface
-import gameEngine.framebuffer.DualPaletteFrameBuffer
+import gameEngine.entity.Scene
+import gameEngine.entity.PlayerAction
 import gameEngine.pll.PLLBlackBox
-import gameEngine.entity.library.WallEntity
-import gameEngine.raycast._
-import gameEngine.fixed.InverseSqrt
+import gameEngine.screen.VGAInterface
+
 import gameEngine.fixed.FixedPointUtils._
-import gameEngine.vec2.Vec2
-import gameEngine.raycast.RayHit
 
 class Engine extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
     val lookRight = Input(Bool())
     val lookLeft = Input(Bool())
+    val moveForward = Input(Bool())
+    val moveBackward = Input(Bool())
   })
 
-  val doomPalette = Seq(
-    "h000".U(12.W), // #000000
-    "h222".U(12.W), // #222222
-    "h444".U(12.W), // #444444
-    "h777".U(12.W), // #777777
-    "hAAA".U(12.W), // #AAAAAA
-    "hFFF".U(12.W), // #FFFFFF
-
-    "h430".U(12.W), // #443300
-    "h640".U(12.W), // #664400
-    "hA50".U(12.W), // #AA5500
-    "hD90".U(12.W), // #DD9900
-
-    "hF20".U(12.W), // #FF2200
-    "hF60".U(12.W), // #FF6600
-    "hFF0".U(12.W), // #FFFF00
-
-    "hA00".U(12.W), // #AA0000
-    "hF00".U(12.W), // #FF0000
-    "h800".U(12.W) // #880000
-  )
-
-  val map = Seq(
-    Seq(1, 1, 1, 1),
-    Seq(1, 0, 0, 1),
-    Seq(1, 0, 0, 1),
-    Seq(1, 1, 1, 1)
-  )
-  val nTiles = 2
+  val scene = Module(new Scene)
+  io.vga := scene.io.vga
 
   val (tickCnt, tick) = Counter(true.B, 2000000)
-  val playerAngle = RegInit(toFP(math.Pi / 4))
+  scene.io.playerAction := PlayerAction.idle
+
   when(tick) {
     when(io.lookLeft) {
-      playerAngle := playerAngle + toFP(0.01)
+      scene.io.playerAction := PlayerAction.turnLeft
     }
-
     when(io.lookRight) {
-      playerAngle := playerAngle - toFP(0.01)
+      scene.io.playerAction := PlayerAction.turnRight
     }
-  }
-
-  val rc = Module(new RaycasterCore)
-  val buf = Module(new DualPaletteFrameBuffer(doomPalette))
-  val wall = Module(new WallEntity(doomPalette.length, 8, 320))
-  val heightsReg = RegInit(VecInit(Seq.fill(320)(0.U(log2Ceil(240).W))))
-  wall.io.heights := heightsReg
-
-  object S extends ChiselEnum {
-    val idle, calculate, filling, waiting = Value
-  }
-
-  val state = RegInit(S.idle)
-
-  val (x, xWrap) = Counter(state === S.filling, 320)
-  val (y, yWrap) = Counter(xWrap && (state === S.filling), 240)
-
-  io.vga := buf.io.vga
-
-  buf.io.x := DontCare
-  buf.io.y := DontCare
-  buf.io.dataIn := DontCare
-  buf.io.wEnable := false.B
-  buf.io.valid := false.B
-
-  wall.io.x := DontCare
-  wall.io.y := DontCare
-
-  rc.io.in.bits := DontCare
-  rc.io.columns.ready := false.B
-  rc.io.in.valid := false.B
-
-  val idx = RegInit(0.U(16.W))
-
-  switch(state) {
-    is(S.idle) {
-      rc.io.in.valid := true.B
-      rc.io.in.bits.start := Vec2(toFP(1.5), toFP(1.5))
-      rc.io.in.bits.angle := playerAngle
-      when(rc.io.in.ready) {
-        idx := 0.U
-        state := S.calculate
-      }
+    when(io.moveForward) {
+      scene.io.playerAction := PlayerAction.moveForward
     }
-    is(S.calculate) {
-      rc.io.columns.ready := true.B
-      when(rc.io.columns.valid) {
-        for (i <- 0 until 320) {
-          heightsReg(i) := rc.io.columns.bits(i).height
-        }
-        state := S.filling
-      }
-
-    }
-    is(S.filling) {
-      buf.io.x := x
-      buf.io.y := y
-      buf.io.wEnable := true.B
-
-      wall.io.x := x
-      wall.io.y := y
-
-      buf.io.dataIn := Mux(wall.io.visible, wall.io.color, 0.U)
-
-      when(xWrap && yWrap) { state := S.waiting }
-    }
-    is(S.waiting) {
-      buf.io.valid := true.B
-      when(buf.io.newFrame) {
-        state := S.idle
-      }
+    when(io.moveBackward) {
+      scene.io.playerAction := PlayerAction.moveBackward
     }
   }
 
@@ -151,7 +57,10 @@ class Engine extends Module {
 class TopModule( /*game input when io works*/ ) extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
-    val lookLeft, lookRight = Input(Bool())
+    val lookRight = Input(Bool())
+    val lookLeft = Input(Bool())
+    val moveForward = Input(Bool())
+    val moveBackward = Input(Bool())
   })
 
   val clk50MHz = Wire(Clock())
@@ -170,6 +79,8 @@ class TopModule( /*game input when io works*/ ) extends Module {
     io.vga := engine.io.vga
     engine.io.lookLeft := io.lookLeft
     engine.io.lookRight := io.lookRight
+    engine.io.moveForward := io.moveForward
+    engine.io.moveBackward := io.moveBackward
   }
 }
 
