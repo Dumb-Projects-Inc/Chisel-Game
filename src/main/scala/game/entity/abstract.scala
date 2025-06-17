@@ -2,6 +2,7 @@ package gameEngine.entity
 
 import chisel3._
 import chisel3.util.log2Ceil
+import scala.math.min
 
 /** Abstract Sprite module.
   * @param width
@@ -42,67 +43,82 @@ class ImageSprite(filepath: String, width: Int, height: Int)
   io.transparent := rgb(12)
 }
 
+import chisel3._
+
 class PalettedIndexSprite(
     filepath: String,
-    width: Int,
-    height: Int,
-    palette: Seq[UInt]
+    imageWidth: Int,
+    imageHeight: Int,
+    palette: Seq[UInt],
+    maxRenderWidth: Int,
+    maxRenderHeight: Int
 ) extends Module {
   val io = IO(new Bundle {
-    val x, y = Input(UInt(log2Ceil(width).W))
-    val idx = Output(UInt(log2Ceil(palette.length).W))
+    val x           = Input(UInt(log2Ceil(maxRenderWidth).W))
+    val y           = Input(UInt(log2Ceil(maxRenderHeight).W))
+    val scale       = Input(UInt(12.W))
+    val idx         = Output(UInt(log2Ceil(palette.length).W))
     val transparent = Output(Bool())
-    val scale = Input(SInt())
   })
 
-  val (pixelData, imgW, imgH) = SpriteImageUtil.loadPngData(filepath)
-  require(imgW == width && imgH == height)
-
-  private def dist(c1: Int, c2: Int) = {
-    val r1 = (c1 >> 8) & 0xf
-    val g1 = (c1 >> 4) & 0xf
-    val b1 = c1 & 0xf
-    val r2 = (c2 >> 8) & 0xf
-    val g2 = (c2 >> 4) & 0xf
-    val b2 = c2 & 0xf
-    val dr = r1 - r2; val dg = g1 - g2; val db = b1 - b2
-    dr * dr + dg * dg + db * db
+  private def dist(c1: Int, c2: Int): Int = {
+    val (r1, g1, b1) = ((c1>>8)&0xf, (c1>>4)&0xf, c1&0xf)
+    val (r2, g2, b2) = ((c2>>8)&0xf, (c2>>4)&0xf, c2&0xf)
+    val dr = r1-r2; val dg = g1-g2; val db = b1-b2
+    dr*dr + dg*dg + db*db
   }
-
-  private val palCodes = palette.map(_.litValue.toInt).toArray
+  val (pixelData, imgW, imgH) = SpriteImageUtil.loadPngData(filepath)
+  require(imgW==imageWidth && imgH==imageHeight)
+  private val palCodes   = palette.map(_.litValue.toInt).toArray
   private val palWithIdx = palCodes.zipWithIndex
 
-  private val quantIdx = Array.fill(width * height)(0)
-  private val quantT = Array.fill(width * height)(false)
-  for (((rawBig, i)) <- pixelData.zipWithIndex) {
-    val raw = rawBig.toInt
-    val t = ((raw >> 12) & 1) != 0
-    quantT(i) = t
-    quantIdx(i) =
-      if (t) 0
-      else {
-        val rgb12 = raw & 0xfff
-        palWithIdx.minBy { case (code, _) => dist(rgb12, code) }._2
-      }
+  val baseIdx = Array.ofDim[Int](imageHeight,imageWidth)
+  val baseT   = Array.ofDim[Boolean](imageHeight,imageWidth)
+  for(y<-0 until imageHeight; x<-0 until imageWidth) {
+    val raw = pixelData(y*imageWidth+x).toInt
+    val t   = ((raw>>12)&1)!=0
+    baseT(y)(x)=t
+    baseIdx(y)(x)= if(t)0 else palWithIdx.minBy{case(c,_)=>(dist(raw&0xfff,c))}._2
   }
+    val idxROM  = VecInit(
+    baseIdx.toIndexedSeq.map { row =>
+      VecInit(row.toIndexedSeq.map(_.U(log2Ceil(palette.length).W)))
+    }
+  )
+    val maskROM = VecInit(
+    baseT.toIndexedSeq.map { row =>
+      VecInit(row.toIndexedSeq.map(_.B))
+    }
+  )
 
-  val idxRom = VecInit.tabulate(height, width) { (r, c) =>
-    quantIdx(r * width + c).U
-  }
-  val maskRom = VecInit.tabulate(height, width) { (r, c) =>
-    quantT(r * width + c).B
-  }
+  val validScales = 5 to 1000
+  private val recipWidth = 19
+  val recipLUT = VecInit(validScales.map{s => ((100<<14)/s).U(recipWidth.W)})
 
-  val sx_s = io.x.asSInt * 100.S / io.scale
-  val sy_s = io.y.asSInt * 100.S / io.scale
+  val s0       = Mux(io.scale < 5.U, 5.U, Mux(io.scale > 1000.U,1000.U,io.scale))
+  val idxScale = s0 - 5.U 
+  val recip0   = recipLUT(idxScale)
 
-  val sx = Mux(sx_s < 0.S, 0.U, (sx_s.asUInt min (width - 1).U))
-  val sy = Mux(sy_s < 0.S, 0.U, (sy_s.asUInt min (height - 1).U))
-  val inBounds = sx < width.U && sy < height.U
+  val x0 = io.x; 
+  val y0 = io.y
 
-  val pixIdx = Mux(inBounds, idxRom(sy)(sx), 0.U)
-  val pixTr = Mux(inBounds, maskRom(sy)(sx), true.B)
+  val rx1 = (RegNext(x0) * RegNext(recip0)) >> 14
+  val ry1 = (RegNext(y0) * RegNext(recip0)) >> 14
+  val cx2 = RegNext(Mux(rx1 >= imageWidth.U, (imageWidth-1).U, rx1))
+  val cy2 = RegNext(Mux(ry1 >= imageHeight.U,(imageHeight-1).U, ry1))
 
-  io.idx := pixIdx
-  io.transparent := pixTr
+  val scaledW = (imageWidth.U * s0) / 100.U
+  val scaledH = (imageHeight.U * s0) / 100.U
+
+  // Quick fix for strange outside sprite bars (makes them transparent)
+  val outside = (x0 >= scaledW) || (y0 >= scaledH)
+
+  val rawIdx  = idxROM (cy2)(cx2)
+  val rawMask = maskROM(cy2)(cx2)
+  val finalMask = outside || rawMask
+  val finalIdx  = Mux(finalMask, 0.U, rawIdx)
+
+  io.idx        := RegNext(finalIdx)
+  io.transparent:= RegNext(finalMask)
 }
+

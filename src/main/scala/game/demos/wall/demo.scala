@@ -5,18 +5,21 @@ import chisel3.util.{log2Ceil, Counter, switch, is, Enum, PriorityMux}
 import chisel3.util.PriorityMux
 import chisel3.stage.ChiselGeneratorAnnotation
 import circt.stage.{ChiselStage, FirtoolOption}
-
+import gameEngine.pll.PLLBlackBox
 import gameEngine.screen.VGAInterface
 import gameEngine.framebuffer.DualPaletteFrameBuffer
-import gameEngine.entity.library.WallEntity
 import gameEngine.vec2.Vec2._
 import gameEngine.vec2.Vec2
-import gameEngine.entity.library.WallEntity
-import gameEngine.entity.library.SmileyEntity
+import gameEngine.entity.library.BobEntity
 
 class WallDemo extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
+
+    val moveUp = Input(Bool())
+    val moveDown = Input(Bool())
+    val moveRight = Input(Bool())
+    val moveLeft = Input(Bool())
   })
 
   val doomPalette = Seq(
@@ -44,34 +47,48 @@ class WallDemo extends Module {
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
   io.vga := buf.io.vga
 
-  val bob = Module(new SmileyEntity(8, doomPalette))
-  bob.io.scale := 50.S
+  val bob = Module(
+    new BobEntity(
+      coordWidth = 16,
+      palette = doomPalette,
+      period = 25_000_000
+    )
+  )
+  bob.io.scale := 100.U
   bob.io.screen.x := DontCare
   bob.io.screen.y := DontCare
   bob.io.setPos.wrEn := false.B
-  bob.io.setPos.x := 0.U
-  bob.io.setPos.y := 0.U
+  bob.io.setPos.x := 1.U
+  bob.io.setPos.y := 1.U
+  bob.io.moveUp := io.moveUp
+  bob.io.moveDown := io.moveDown
+  bob.io.moveLeft := io.moveLeft
+  bob.io.moveRight := io.moveRight
 
-  val points = RegInit(
-    VecInit(
-      (0 until 239).map(_.U)
-    )
-  )
 
-  val wall = Module(new WallEntity(doomPalette.length, 8, points.length))
-  wall.io.heights := points
-  wall.io.x := DontCare
-  wall.io.y := DontCare
+  val scale = RegInit(50.U(12.W))
+  val bobX = RegInit(160.U(10.W))
 
   val filling :: waiting :: Nil = Enum(2)
   val state = RegInit(filling)
   val (x, xWrap) = Counter(state === filling, 320)
   val (y, yWrap) = Counter(xWrap && (state === filling), 240)
 
-  val (gameCount, gameTick) = Counter(true.B, 2000000)
-  when(gameTick) {
-    points := VecInit(points.map(_ + 1.U))
+  val (_, gameTick) = Counter(true.B, 2000000)
+  when(gameTick && io.moveDown && scale < 1000.U) {
+    scale := scale + 5.U
   }
+  when(gameTick && io.moveUp && scale > 5.U) {
+    scale := scale - 5.U
+  }
+  when(gameTick && io.moveRight && scale < 319.U) {
+    bobX := bobX + 1.U
+  }
+  when(gameTick && io.moveLeft && scale > 0.U) {
+    bobX := bobX - 1.U
+  }
+
+  bob.io.scale := scale
 
   buf.io.valid := false.B
   buf.io.wEnable := false.B
@@ -85,20 +102,16 @@ class WallDemo extends Module {
       buf.io.y := y
       buf.io.wEnable := true.B
 
-      wall.io.x := x
-      wall.io.y := y
-
       bob.io.screen.x := x
       bob.io.screen.y := y
       bob.io.setPos.wrEn := true.B
-      bob.io.setPos.x := 0.U
-      bob.io.setPos.y := 0.U
+      bob.io.setPos.x := bobX
+      bob.io.setPos.y := 120.U
 
       buf.io.dataIn := PriorityMux(
         Seq(
           bob.io.visible -> bob.io.pixel,
-          wall.io.visible -> wall.io.color,
-          true.B -> 0.U
+          true.B -> 3.U // Just a different background
         )
       )
 
@@ -112,6 +125,36 @@ class WallDemo extends Module {
     }
   }
 }
+
+class WallDemoTop extends Module {
+  val io = IO(new Bundle {
+    val vga = new VGAInterface
+
+    val moveUp = Input(Bool())
+    val moveDown = Input(Bool())
+    val moveRight = Input(Bool())
+    val moveLeft = Input(Bool())
+  })
+
+  val clk50MHz = Wire(Clock())
+  val locked = Wire(Bool())
+
+  val pll = Module(new PLLBlackBox)
+  pll.io.clock := clock
+  pll.io.reset := reset
+  clk50MHz := pll.io.clk50MHz
+  locked := pll.io.locked
+
+  withClockAndReset(clk50MHz, !locked) {
+    val demo = Module(new WallDemo)
+    demo.io.moveUp := io.moveUp
+    demo.io.moveDown := io.moveDown
+    demo.io.moveRight := io.moveRight
+    demo.io.moveLeft := io.moveLeft
+    io.vga := demo.io.vga
+  }
+}
+
 object WallDemoMain {
   def main(args: Array[String]): Unit = {
     (new ChiselStage).execute(
@@ -123,7 +166,7 @@ object WallDemoMain {
         "--split-verilog"
       ),
       Seq(
-        ChiselGeneratorAnnotation(() => new WallDemo),
+        ChiselGeneratorAnnotation(() => new WallDemoTop),
         FirtoolOption("--disable-all-randomization")
       )
     )

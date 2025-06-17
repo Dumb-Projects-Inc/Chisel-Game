@@ -87,7 +87,7 @@ class Entity(width: Int) extends Module {
   io.out.acceleration.y := accelerationRegy
 }
 
-class SpriteEntity(filename: String, width: Int) extends Entity(width) {
+/* class SpriteEntity(filename: String, width: Int) extends Entity(width) {
   val sprite = Module(new ImageSprite(filename, 64, 64))
 
   sprite.io.x := io.in.screen.x - posRegx
@@ -95,26 +95,34 @@ class SpriteEntity(filename: String, width: Int) extends Entity(width) {
 
   io.visible := io.in.screen.x - posRegx < 64.U && io.in.screen.y - posRegy < 64.U && !sprite.io.transparent
   io.pixel := sprite.io.r ## sprite.io.g ## sprite.io.b
-}
+} */
 
 class PalettedSpriteEntity(
     filename: String,
     coordWidth: Int,
     palette: Seq[UInt],
-    width: Int,
-    height: Int
+    imageWidth: Int,
+    imageHeight: Int
 ) extends Entity(coordWidth) {
-  val scale = IO(Input(SInt()))
+  val scale = IO(Input(UInt(12.W)))
 
-  val sprite = Module(new PalettedIndexSprite(filename, width, height, palette))
+  val sprite = Module(new PalettedIndexSprite(
+    filepath = filename,
+    imageWidth = imageWidth,
+    imageHeight = imageHeight,
+    palette = palette,
+    maxRenderWidth = imageWidth * 10,
+    maxRenderHeight = imageHeight * 10
+  ))
+
   sprite.io.scale := scale
-
   sprite.io.x := io.in.screen.x - posRegx
   sprite.io.y := io.in.screen.y - posRegy
 
-  io.visible := (io.in.screen.x - posRegx < width.asUInt) &&
-    (io.in.screen.y - posRegy < height.asUInt) &&
-    !sprite.io.transparent
+  io.visible := (io.in.screen.x - posRegx < (imageWidth * 10).U) &&
+                (io.in.screen.y - posRegy < (imageHeight * 10).U) &&
+                !sprite.io.transparent
 
   io.pixel := sprite.io.idx
 }
+
