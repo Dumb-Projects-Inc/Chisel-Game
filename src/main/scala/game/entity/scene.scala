@@ -47,7 +47,7 @@ class Scene extends Module {
 
     "hA00".U(12.W), // #AA0000
     "hF00".U(12.W), // #FF0000
-    "h800".U(12.W) // #880000
+    "h08F".U(12.W) // #0088FF
   )
 
   val _map = Seq(
@@ -170,7 +170,13 @@ class Scene extends Module {
           wall.io.x := x
           wall.io.y := y
 
-          buf.io.dataIn := Mux(wall.io.visible, wall.io.color, 0.U)
+          buf.io.dataIn := PriorityMux(
+            Seq(
+              wall.io.visible -> wall.io.color,
+              (y > 120.U) -> 3.U,
+              true.B -> 15.U
+            )
+          )
 
           when(xWrap && yWrap) { rayState := RayState.waiting }
         }
