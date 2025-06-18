@@ -50,7 +50,7 @@ class Scene extends Module {
     "h08F".U(12.W) // #0088FF
   )
 
-  val _map = Seq(
+  val _map: Seq[Seq[Int]] = Seq(
     Seq(1, 1, 1, 1),
     Seq(1, 0, 0, 1),
     Seq(1, 0, 0, 1),
@@ -62,10 +62,12 @@ class Scene extends Module {
   )
   val nTiles = 2
 
-  val map = VecInit.tabulate(4, 4) { (x, y) => _map(x)(y).B }
+  val map = VecInit.tabulate(_map.length, _map(0).length) { (x, y) =>
+    _map(x)(y).B
+  }
   val player = Module(new PlayerEntity(1.5, 1.5, math.Pi / 4.0, _map))
 
-  val rc = Module(new RaycasterCore)
+  val rc = Module(new RaycasterCore(map = _map))
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
   val wall = Module(new WallEntity(doomPalette.length, 8, 320))
   val heightsReg = RegInit(VecInit(Seq.fill(320)(0.U(log2Ceil(240).W))))
@@ -122,8 +124,8 @@ class Scene extends Module {
       is(PlayerAction.moveBackward) { defaultArg := toFP(moveSpeed) }
       is(PlayerAction.strafeLeft) { defaultArg := toFP(moveSpeed) }
       is(PlayerAction.strafeRight) { defaultArg := toFP(moveSpeed) }
-      is(PlayerAction.turnLeft) { defaultArg := toFP(0.01) }
-      is(PlayerAction.turnRight) { defaultArg := toFP(-0.01) }
+      is(PlayerAction.turnLeft) { defaultArg := toFP(0.02) }
+      is(PlayerAction.turnRight) { defaultArg := toFP(-0.02) }
     }
   }
   player.io.actionArg := Mux(state === S.updatePlayer, defaultArg, 0.S)

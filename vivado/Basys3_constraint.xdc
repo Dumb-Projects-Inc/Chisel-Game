@@ -11,8 +11,8 @@ set_property PACKAGE_PIN W5 [get_ports clock]
 	create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports clock]
  
 # Switches
-set_property PACKAGE_PIN V17 [get_ports {io_lookLeft}]					
-set_property PACKAGE_PIN V16 [get_ports {io_lookRight}]					
+#set_property PACKAGE_PIN V17 [get_ports {io_lookLeft}]					
+#set_property PACKAGE_PIN V16 [get_ports {io_lookRight}]					
 #set_property PACKAGE_PIN W16 [get_ports {sw[2]}]					
 #set_property PACKAGE_PIN W17 [get_ports {sw[3]}]					
 #set_property PACKAGE_PIN W15 [get_ports {sw[4]}]					
@@ -68,8 +68,8 @@ set_property PACKAGE_PIN V16 [get_ports {io_lookRight}]
 ##Buttons
 set_property PACKAGE_PIN U18 [get_ports reset]						
 set_property PACKAGE_PIN T18 [get_ports io_moveForward]						
-#set_property PACKAGE_PIN W19 [get_ports btnL]						
-#set_property PACKAGE_PIN T17 [get_ports btnR]						
+set_property PACKAGE_PIN W19 [get_ports io_lookLeft]						
+set_property PACKAGE_PIN T17 [get_ports io_lookRight]						
 set_property PACKAGE_PIN U17 [get_ports io_moveBackward]						
 	 
 
