@@ -15,7 +15,7 @@ import chisel3.util.{
 import gameEngine.fixed.FixedPointUtils
 import gameEngine.screen.VGAInterface
 import gameEngine.framebuffer.DualPaletteFrameBuffer
-import gameEngine.entity.library.WallEntity
+import gameEngine.entity.library.{ShadedWallEntity, WallSegment}
 import gameEngine.raycast._
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
@@ -69,9 +69,10 @@ class Scene extends Module {
 
   val rc = Module(new RaycasterCore(map = _map))
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
-  val wall = Module(new WallEntity(doomPalette.length, 8, 320))
-  val heightsReg = RegInit(VecInit(Seq.fill(320)(0.U(log2Ceil(240).W))))
-  wall.io.heights := heightsReg
+  val wall = Module(new ShadedWallEntity(doomPalette.length, 8, 9, 320))
+  // val heightsReg = RegInit(VecInit(Seq.fill(320)(0.U(log2Ceil(240).W))))
+  val segmentsReg = RegInit(VecInit(Seq.fill(320)(WallSegment(240))))
+  wall.io.segments := segmentsReg
 
   buf.io.x := DontCare
   buf.io.y := DontCare
@@ -158,7 +159,8 @@ class Scene extends Module {
           rc.io.columns.ready := true.B
           when(rc.io.columns.valid) {
             for (i <- 0 until 320) {
-              heightsReg(i) := rc.io.columns.bits(i).height
+              segmentsReg(i).height := rc.io.columns.bits(i).height
+              segmentsReg(i).isHorizontal := rc.io.columns.bits(i).isHorizontal
             }
             rayState := RayState.filling
           }

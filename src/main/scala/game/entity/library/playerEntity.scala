@@ -11,7 +11,7 @@ import gameEngine.trig.TrigLUT
 
 object PlayerAction extends ChiselEnum {
   val idle, moveForward, moveBackward, strafeLeft, strafeRight, turnLeft,
-      turnRight = Value
+      turnRight, turn = Value
 }
 
 class PlayerEntity(
@@ -106,7 +106,7 @@ class PlayerEntity(
         is(PlayerAction.idle) {
           // do nothing
         }
-        is(PlayerAction.turnLeft, PlayerAction.turnRight) {
+        is(PlayerAction.turnLeft, PlayerAction.turnRight, PlayerAction.turn) {
           rotate(latchedActionArg)
         }
         is(PlayerAction.moveForward) {
