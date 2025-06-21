@@ -24,6 +24,7 @@ class Column(maxHeight: Int, nTiles: Int) extends Bundle {
   val height = UInt(log2Ceil(maxHeight).W)
   val tile = UInt(log2Ceil(nTiles).W)
   val isHorizontal = Bool()
+  val fracHit = UInt(12.W) // Q0.12
 }
 
 object Column {
@@ -32,6 +33,7 @@ object Column {
     w.height := 0.U
     w.tile := 0.U
     w.isHorizontal := false.B
+    w.fracHit := 0.U(12.W)
     w
   }
 
@@ -40,12 +42,14 @@ object Column {
       nTiles: Int,
       height: UInt,
       tile: UInt,
-      isHorizontal: Bool
+      isHorizontal: Bool,
+      fracHit: UInt
   ): Column = {
     val w = Wire(new Column(maxHeight, nTiles))
     w.height := height
     w.tile := tile
     w.isHorizontal := isHorizontal
+    w.fracHit := fracHit
     w
   }
 }
@@ -89,7 +93,8 @@ class InverseSqrtStage(nTiles: Int) extends Module {
         invSqrt.io.result.bits,
         rayHitReg.tile,
         rayHitReg.isHorizontal,
-        rayHitReg.angleOffset
+        rayHitReg.angleOffset,
+        rayHitReg.fracHit
       )
       when(io.out.fire) {
         state := S.ready
@@ -159,7 +164,8 @@ class RaycasterCore(
           nTiles,
           colHeight,
           rayHit.tile,
-          rayHit.isHorizontal
+          rayHit.isHorizontal,
+          rayHit.fracHit
         )
 
         idx := idx + 1.U

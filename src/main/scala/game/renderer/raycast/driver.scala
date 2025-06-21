@@ -14,6 +14,7 @@ class RayHit(nTiles: Int) extends Bundle {
   val tile = UInt(log2Ceil(nTiles).W)
   val isHorizontal = Bool()
   val angleOffset = SInt(24.W)
+  val fracHit = UInt(12.W)
 }
 
 object RayHit {
@@ -23,6 +24,7 @@ object RayHit {
     w.tile := 0.U(log2Ceil(nTiles).W)
     w.isHorizontal := false.B
     w.angleOffset := 0.S(24.W)
+    w.fracHit := 0.U(12.W)
     w
   }
 
@@ -31,13 +33,15 @@ object RayHit {
       dist: SInt,
       tile: UInt,
       isHorizontal: Bool,
-      angleOffset: SInt
+      angleOffset: SInt,
+      fracHit: UInt
   ) = {
     val w = Wire(new RayHit(nTiles))
     w.dist := dist
     w.tile := tile
     w.isHorizontal := isHorizontal
     w.angleOffset := angleOffset
+    w.fracHit := fracHit
     w
   }
 }
@@ -118,6 +122,7 @@ class RaycastDriver(
 
   io.response.valid := false.B
   io.response.bits.dist := DontCare
+  io.response.bits.fracHit := DontCare
   io.response.bits.tile := DontCare
   io.response.bits.angleOffset := DontCare
   io.response.bits.isHorizontal := DontCare
@@ -189,6 +194,13 @@ class RaycastDriver(
           currentRayDist
         }
       }
+
+      io.response.bits.fracHit := Mux(
+        currentRayHorizontal,
+        currentRayPos.x,
+        currentRayPos.y
+      )(11, 0)
+
       io.response.bits.dist := outDist // Fish eye correction
       io.response.bits.tile := currentRayTile
       io.response.bits.isHorizontal := currentRayHorizontal
