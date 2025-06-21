@@ -21,6 +21,10 @@ object Vec2 {
       Vec2(a.x + b.x, a.y + b.y)
     }
 
+    def -(b: Vec2[SInt]): Vec2[SInt] = {
+      Vec2(a.x - b.x, a.y - b.y)
+    }
+
     def dist2Fp(b: Vec2[SInt]): SInt = {
       val dX = a.x - b.x
       val dY = a.y - b.y
