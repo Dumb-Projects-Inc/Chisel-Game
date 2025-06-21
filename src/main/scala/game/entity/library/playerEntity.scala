@@ -1,7 +1,7 @@
 package gameEngine.entity
 
 import chisel3._
-import chisel3.util.{switch, is}
+import chisel3.util.{switch, is, Decoupled}
 
 import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
@@ -26,7 +26,8 @@ class PlayerEntity(
     val angle = Output(SInt(32.W)) // Angle of the player
     // val health = Input(UInt(8.W))
 
-    val action = Input(PlayerAction()) // Action input (e.g., move, rotate)
+    val action =
+      Flipped(Decoupled(PlayerAction())) // Action input (e.g., move, rotate)
     val actionArg =
       Input(
         SInt(FixedPointUtils.width.W)
@@ -75,66 +76,81 @@ class PlayerEntity(
 
   }
 
-  // Pipeline for trigLUT
-  val actionReg = RegNext(io.action, PlayerAction.idle)
-  // hack because regnext does not have getwidth
-  val actionArgReg = Reg(SInt(FixedPointUtils.width.W))
-  actionArgReg := io.actionArg
-
   object S extends ChiselEnum {
-    val idle, exec = Value
+    val idle, computeX, computeY, move = Value
   }
   val state = RegInit(S.idle)
 
   val latchedAction = RegInit(PlayerAction.idle)
   val latchedActionArg = RegInit(0.S(FixedPointUtils.width.W))
 
-  switch(state) {
-    is(S.idle) {
-      // Latch input, start executing
-      latchedAction := io.action
-      latchedActionArg := io.actionArg
-      state := S.exec
+  io.action.ready := state === S.idle // Only accept new action when idle
+
+  when(io.action.fire) {
+    // Latch for multi clock cycle actions
+    latchedAction := io.action.bits
+    latchedActionArg := io.actionArg
+    switch(io.action.bits) {
+      is(PlayerAction.turnLeft, PlayerAction.turnRight, PlayerAction.turn) {
+        rotate(io.actionArg)
+      }
+      is(
+        PlayerAction.moveForward,
+        PlayerAction.moveBackward,
+        PlayerAction.strafeLeft,
+        PlayerAction.strafeRight
+      ) {
+        state := S.computeX
+      }
+      is(PlayerAction.idle) {
+        // No action needed for idle
+      }
     }
 
-    is(S.exec) {
+  }
+
+  val delta = Reg(new Vec2(SInt(FixedPointUtils.width.W)))
+
+  switch(state) {
+    is(S.idle) {}
+    is(S.computeX) {
       switch(latchedAction) {
-        is(PlayerAction.idle) {
-          // do nothing
-        }
-        is(PlayerAction.turnLeft, PlayerAction.turnRight, PlayerAction.turn) {
-          rotate(latchedActionArg)
-        }
         is(PlayerAction.moveForward) {
-          val delta = Vec2(
-            triglut.io.cos.fpMul(latchedActionArg),
-            triglut.io.sin.fpMul(latchedActionArg)
-          )
-          move(delta)
+          delta.x := triglut.io.cos.fpMul(latchedActionArg)
         }
         is(PlayerAction.moveBackward) {
-          val delta = Vec2(
-            -triglut.io.cos.fpMul(latchedActionArg),
-            -triglut.io.sin.fpMul(latchedActionArg)
-          )
-          move(delta)
+          delta.x := -triglut.io.cos.fpMul(latchedActionArg)
         }
         is(PlayerAction.strafeLeft) {
-          val delta = Vec2(
-            triglut.io.sin.fpMul(latchedActionArg),
-            -triglut.io.cos.fpMul(latchedActionArg)
-          )
-          move(delta)
+          delta.x := triglut.io.sin.fpMul(latchedActionArg)
         }
         is(PlayerAction.strafeRight) {
-          val delta = Vec2(
-            -triglut.io.sin.fpMul(latchedActionArg),
-            triglut.io.cos.fpMul(latchedActionArg)
-          )
-          move(delta)
+          delta.x := -triglut.io.sin.fpMul(latchedActionArg)
         }
       }
-      state := S.idle // go back to fetch next command
+      state := S.computeY // go back to fetch next command
+    }
+    is(S.computeY) {
+      switch(latchedAction) {
+        is(PlayerAction.moveForward) {
+          delta.y := triglut.io.sin.fpMul(latchedActionArg)
+        }
+        is(PlayerAction.moveBackward) {
+          delta.y := -triglut.io.sin.fpMul(latchedActionArg)
+        }
+        is(PlayerAction.strafeLeft) {
+          delta.y := -triglut.io.cos.fpMul(latchedActionArg)
+        }
+        is(PlayerAction.strafeRight) {
+          delta.y := triglut.io.cos.fpMul(latchedActionArg)
+        }
+      }
+      state := S.move // go back to fetch next command
+    }
+    is(S.move) {
+      // Move the player
+      move(delta)
+      state := S.idle // Go back to idle state after moving
     }
   }
 

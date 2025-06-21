@@ -108,14 +108,17 @@ class Scene extends Module {
     actionPending := io.playerAction
     hasPendingAction := true.B
   }
+  val defaultArg = Wire(SInt(FixedPointUtils.width.W))
+  defaultArg := 0.S
 
-  player.io.action := Mux(
-    state === S.updatePlayer,
+  player.io.action.bits := Mux(
+    hasPendingAction,
     actionPending,
     PlayerAction.idle
   )
-  val defaultArg = Wire(SInt(FixedPointUtils.width.W))
-  defaultArg := 0.S
+  player.io.action.valid := false.B
+  player.io.actionArg := defaultArg
+
   val moveSpeed = 0.02 // Default move speed
   when(hasPendingAction) {
     switch(actionPending) {
@@ -127,7 +130,6 @@ class Scene extends Module {
       is(PlayerAction.turnRight) { defaultArg := toFP(-0.02) }
     }
   }
-  player.io.actionArg := Mux(state === S.updatePlayer, defaultArg, 0.S)
 
   switch(state) {
     is(S.idle) {
@@ -138,6 +140,7 @@ class Scene extends Module {
     }
     is(S.updatePlayer) {
       hasPendingAction := false.B
+      player.io.action.valid := true.B
       state := S.render
     }
 
