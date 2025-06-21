@@ -32,6 +32,10 @@ object Vec2 {
 
     }
 
+    def abs: Vec2[SInt] = {
+      Vec2(a.x.abs, a.y.abs)
+    }
+
     def distFpApprox(b: Vec2[SInt]): SInt = {
       val absX = (a.x - b.x).abs
       val absY = (a.y - b.y).abs

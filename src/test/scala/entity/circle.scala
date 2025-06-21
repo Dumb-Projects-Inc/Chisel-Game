@@ -11,16 +11,63 @@ import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
 class CircleEntitySpec extends AnyFunSpec with ChiselSim with Matchers {
   it("should calculate visibility") {
-
-    simulate(new CircleEntity) { dut =>
-      dut.io.input.bits.pos.x.poke(toFP(1.0))
-      dut.io.input.bits.pos.y.poke(toFP(1.0))
-      dut.io.input.bits.playerPos.x.poke(toFP(0.0))
-      dut.io.input.bits.playerPos.y.poke(toFP(0.0))
+    val map = Seq(
+      Seq(1, 1, 1, 1, 1, 1, 1, 1, 1),
+      Seq(1, 0, 0, 0, 0, 0, 0, 0, 1),
+      Seq(1, 0, 0, 0, 0, 0, 0, 0, 1),
+      Seq(1, 0, 0, 0, 0, 0, 0, 0, 1),
+      Seq(1, 1, 1, 1, 1, 1, 1, 1, 1)
+    )
+    simulate(new CircleEntity(map = map)) { dut =>
+      dut.io.input.bits.pos.x.poke(toFP(2.0))
+      dut.io.input.bits.pos.y.poke(toFP(2.0))
+      dut.io.input.bits.playerPos.x.poke(toFP(1.5))
+      dut.io.input.bits.playerPos.y.poke(toFP(1.5))
       dut.io.input.bits.playerAngle.poke(toFP(math.Pi / 4.0))
       dut.io.input.valid.poke(true.B)
+      dut.clock.step()
+      dut.io.input.valid.poke(false.B)
       dut.clock.stepUntil(dut.io.output.valid, 1, 100)
+      dut.io.output.bits.visible.expect(true.B)
 
+      dut.io.output.ready.poke(true.B)
+      dut.clock.step()
+      dut.io.output.ready.poke(false.B)
+      dut.io.input.bits.playerAngle.poke(toFP(3 * math.Pi / 4.0))
+      dut.io.input.valid.poke(true.B)
+      dut.clock.stepUntil(dut.io.output.valid, 1, 100)
+      dut.io.output.bits.visible.expect(false.B)
+
+    }
+  }
+
+  it("should not be visible through a wall") {
+    val map = Seq(
+      Seq(1, 1, 1, 1, 1, 1, 1, 1, 1),
+      Seq(1, 0, 0, 0, 1, 0, 0, 0, 1),
+      Seq(1, 0, 0, 0, 1, 0, 0, 0, 1),
+      Seq(1, 0, 0, 0, 1, 0, 0, 0, 1),
+      Seq(1, 1, 1, 1, 1, 1, 1, 1, 1)
+    )
+    simulate(new CircleEntity(map = map)) { dut =>
+      dut.io.input.bits.pos.x.poke(toFP(6.5))
+      dut.io.input.bits.pos.y.poke(toFP(2.5))
+      dut.io.input.bits.playerPos.x.poke(toFP(2.5))
+      dut.io.input.bits.playerPos.y.poke(toFP(2.5))
+      dut.io.input.bits.playerAngle.poke(toFP(0))
+      dut.io.input.valid.poke(true.B)
+      dut.clock.step()
+      dut.io.input.valid.poke(false.B)
+      dut.clock.stepUntil(dut.io.output.valid, 1, 100)
+      dut.io.output.bits.visible.expect(false.B)
+
+      dut.io.output.ready.poke(true.B)
+      dut.clock.stepUntil(dut.io.input.ready, 1, 100)
+      dut.io.output.ready.poke(false.B)
+      dut.io.input.bits.pos.x.poke(toFP(3.5))
+      dut.io.input.bits.pos.y.poke(toFP(2.5))
+      dut.io.input.valid.poke(true.B)
+      dut.clock.stepUntil(dut.io.output.valid, 1, 100)
       dut.io.output.bits.visible.expect(true.B)
     }
   }

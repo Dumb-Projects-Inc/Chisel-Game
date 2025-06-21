@@ -8,7 +8,8 @@ import gameEngine.fixed.InverseSqrt
 import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
 
-class CircleEntity(fov: Double = 1.5) extends Module {
+class CircleEntity(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
+    extends Module {
   val io = IO(new Bundle {
     val input = Flipped(Decoupled(new Bundle {
       val pos = new Vec2(SInt(FixedPointUtils.width.W))
@@ -22,6 +23,10 @@ class CircleEntity(fov: Double = 1.5) extends Module {
     })
   })
 
+  val mapVec = VecInit.tabulate(map.length, map(0).length) { (x, y) =>
+    map(x)(y).B
+  }
+
   io.input.ready := false.B
   io.output.valid := false.B
   io.output.bits := DontCare
@@ -33,8 +38,9 @@ class CircleEntity(fov: Double = 1.5) extends Module {
   val triglut = Module(new gameEngine.trig.TrigLUT)
 
   object S extends ChiselEnum {
-    val idle, delta, deltaSquare1, deltaSquare2, computeInvSqrt, normalize1,
-        normalize2, calcCos, done =
+    val idle, delta, deltaSquare1, deltaSquare2, computeCosNorm, normalize1,
+        normalize2, calcCos, stepInit, stepCompute, compueSinNorm, calcXoffset,
+        done =
       Value
   }
   val state = RegInit(S.idle)
@@ -48,7 +54,8 @@ class CircleEntity(fov: Double = 1.5) extends Module {
   )
 
   triglut.io.angle := angleLatch
-  val deltaInvSqrt = RegInit(0.S(FixedPointUtils.width.W))
+  val deltaCosNorm = RegInit(0.S(FixedPointUtils.width.W))
+  val deltaSinNorm = RegInit(0.S(FixedPointUtils.width.W))
   val deltaNorm = RegInit(
     Vec2(0.S(FixedPointUtils.width.W), 0.S(FixedPointUtils.width.W))
   )
@@ -61,6 +68,16 @@ class CircleEntity(fov: Double = 1.5) extends Module {
   val delta2 = RegInit(
     Vec2(0.S(FixedPointUtils.width.W), 0.S(FixedPointUtils.width.W))
   )
+
+  // Stepping variables
+  val steps = 16
+  val invSteps = toFP(1.0 / steps.toDouble)
+
+  val curr = Reg(new Vec2(SInt(FixedPointUtils.width.W)))
+  val targetTile = Reg(new Vec2(UInt(12.W)))
+  val hitWall = RegInit(false.B)
+  val stepIdx = RegInit(0.U(log2Ceil(steps).W))
+  val step = Reg(new Vec2(SInt(FixedPointUtils.width.W)))
 
   switch(state) {
     is(S.idle) {
@@ -83,34 +100,67 @@ class CircleEntity(fov: Double = 1.5) extends Module {
     }
     is(S.deltaSquare2) {
       delta2.y := delta.y.fpMul(delta.y)
-      state := S.computeInvSqrt
+      state := S.computeCosNorm
     }
-    is(S.computeInvSqrt) {
+    is(S.computeCosNorm) {
       invSqrt.io.input.bits := delta2.x + delta2.y
       invSqrt.io.input.valid := true.B
 
       when(invSqrt.io.result.valid) {
-        deltaInvSqrt := invSqrt.io.result.bits
+        deltaCosNorm := invSqrt.io.result.bits
         invSqrt.io.result.ready := true.B
         state := S.normalize1
       }
     }
     is(S.normalize1) {
-      deltaNorm.x := delta.x.fpMul(deltaInvSqrt)
+      deltaNorm.x := delta.x.fpMul(deltaCosNorm)
       state := S.normalize2
     }
     is(S.normalize2) {
-      deltaNorm.y := delta.y.fpMul(deltaInvSqrt)
+      deltaNorm.y := delta.y.fpMul(deltaCosNorm)
       state := S.calcCos
     }
     is(S.calcCos) {
       cosAngleReg :=
         deltaNorm.x.fpMul(triglut.io.cos) + deltaNorm.y.fpMul(triglut.io.sin)
-      state := S.done
+      state := S.stepInit
+    }
+    is(S.stepInit) {
+      step := Vec2(
+        delta.x.fpMul(invSteps),
+        delta.y.fpMul(invSteps)
+      )
+      curr := playerPosLatch
+      targetTile := Vec2(posLatch.x(23, 12), posLatch.y(23, 12))
+      hitWall := false.B
+      stepIdx := 0.U
+
+      state := S.stepCompute
+    }
+    is(S.stepCompute) {
+      when(stepIdx < steps.U && !hitWall) {
+        val tile = Vec2(
+          curr.x(23, 12),
+          curr.y(23, 12)
+        )
+
+        when(tile.x === targetTile.x && tile.y === targetTile.y) {
+          // Reached sprite tile
+          state := S.done
+        }.elsewhen(mapVec(tile.y)(tile.x) === 1.B) {
+          hitWall := true.B
+          state := S.done
+        }.otherwise {
+          curr := curr + step
+          stepIdx := stepIdx + 1.U
+        }
+      }.otherwise {
+        state := S.done
+      }
     }
     is(S.done) {
-      val visible = cosAngleReg > FixedPointUtils.toFP(math.cos(fov / 2.0))
-      io.output.bits.visible := visible
+      val visible = cosAngleReg > toFP(math.cos(fov / 2.0))
+      io.output.bits.visible := visible && !hitWall
       io.output.valid := true.B
       when(io.output.ready) {
         state := S.idle
