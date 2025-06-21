@@ -109,7 +109,7 @@ class RaycasterCore(
 
   val io = IO(new Bundle {
     val in = Flipped(Decoupled(new RayRequest))
-    val columns = Decoupled(Vec(width, new Column(width, nTiles)))
+    val columns = Decoupled(Vec(width, new Column(height, nTiles)))
   })
 
   val rc = Module(
