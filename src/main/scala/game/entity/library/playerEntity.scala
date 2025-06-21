@@ -24,7 +24,7 @@ class PlayerEntity(
     // val map = Input() //Map as input for colission detection
     val pos = Output(new Vec2(SInt(24.W)))
     val angle = Output(SInt(32.W)) // Angle of the player
-    // val health = Input(UInt(8.W)) // Health of the player
+    // val health = Input(UInt(8.W))
 
     val action = Input(PlayerAction()) // Action input (e.g., move, rotate)
     val actionArg =
@@ -36,14 +36,9 @@ class PlayerEntity(
 
   val posReg = RegInit(Vec2(toFP(init_x), toFP(init_y)))
   val angleReg = RegInit(toFP(init_angle))
-  // TODO: allow for maps with no walls
-  val wallCoordinates = VecInit(
-    map.zipWithIndex.flatMap { case (row, y) =>
-      row.zipWithIndex.collect { case (1, x) =>
-        Vec2(x.U(8.W), y.U(8.W))
-      }
-    }
-  )
+  val mapVec = VecInit.tabulate(map.length, map(0).length) { (x, y) =>
+    map(x)(y).B
+  }
 
   val triglut = Module(new TrigLUT)
   triglut.io.angle := angleReg
@@ -58,7 +53,8 @@ class PlayerEntity(
 
     // check if posInt is within wallCoordinates
     when(
-      wallCoordinates.exists(wall => wall.x === posInt.x && wall.y === posInt.y)
+      // wallCoordinates.exists(wall => wall.x === posInt.x && wall.y === posInt.y)
+      mapVec(posInt.y)(posInt.x) === 1.B
     ) {
       // Collision detected, do not update position
     }.otherwise {
