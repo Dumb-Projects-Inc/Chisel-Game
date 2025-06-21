@@ -65,7 +65,6 @@ class WallDemo extends Module {
   bob.io.moveLeft := io.moveLeft
   bob.io.moveRight := io.moveRight
 
-
   val scale = RegInit(50.U(12.W))
   val bobX = RegInit(160.U(10.W))
 

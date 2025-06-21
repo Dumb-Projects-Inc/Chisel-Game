@@ -4,7 +4,6 @@ import chisel3._
 import chisel3.util._
 import gameEngine.entity.PalettedSpriteEntity
 
-
 class BarrelEntity(width: Int, palette: Seq[UInt]) extends Module {
   val io = IO(new Bundle {
     val screen = new Bundle {
@@ -24,7 +23,9 @@ class BarrelEntity(width: Int, palette: Seq[UInt]) extends Module {
   val posX = RegInit(0.U(width.W))
   val posY = RegInit(0.U(width.W))
 
-  val sprite = Module(new PalettedSpriteEntity("./barrel.png", width, palette, 64, 64))  
+  val sprite = Module(
+    new PalettedSpriteEntity("./barrel.png", width, palette, 64, 64)
+  )
   sprite.scale := io.scale
 
   when(io.setPos.wrEn) {

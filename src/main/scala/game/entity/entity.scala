@@ -106,23 +106,24 @@ class PalettedSpriteEntity(
 ) extends Entity(coordWidth) {
   val scale = IO(Input(UInt(12.W)))
 
-  val sprite = Module(new PalettedIndexSprite(
-    filepath = filename,
-    imageWidth = imageWidth,
-    imageHeight = imageHeight,
-    palette = palette,
-    maxRenderWidth = imageWidth * 10,
-    maxRenderHeight = imageHeight * 10
-  ))
+  val sprite = Module(
+    new PalettedIndexSprite(
+      filepath = filename,
+      imageWidth = imageWidth,
+      imageHeight = imageHeight,
+      palette = palette,
+      maxRenderWidth = imageWidth * 10,
+      maxRenderHeight = imageHeight * 10
+    )
+  )
 
   sprite.io.scale := scale
   sprite.io.x := io.in.screen.x - posRegx
   sprite.io.y := io.in.screen.y - posRegy
 
   io.visible := (io.in.screen.x - posRegx < (imageWidth * 10).U) &&
-                (io.in.screen.y - posRegy < (imageHeight * 10).U) &&
-                !sprite.io.transparent
+    (io.in.screen.y - posRegy < (imageHeight * 10).U) &&
+    !sprite.io.transparent
 
   io.pixel := sprite.io.idx
 }
-
