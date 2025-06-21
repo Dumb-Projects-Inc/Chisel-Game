@@ -34,23 +34,17 @@ class Engine extends Module {
   val scene = Module(new Scene)
   io.vga := scene.io.vga
 
-  val (tickCnt, tick) = Counter(true.B, 2000000)
+  val (tickCnt, tick) = Counter(true.B, 500000) // 2000000 / 4 = 500000
   scene.io.playerAction := PlayerAction.idle
 
-  when(tick) {
-    when(io.lookLeft) {
-      scene.io.playerAction := PlayerAction.turnLeft
-    }
-    when(io.lookRight) {
-      scene.io.playerAction := PlayerAction.turnRight
-    }
-    when(io.moveForward) {
-      scene.io.playerAction := PlayerAction.moveForward
-    }
-    when(io.moveBackward) {
-      scene.io.playerAction := PlayerAction.moveBackward
-    }
-  }
+  val (index, wrap) = Counter(tick, 4)
+  val action = VecInit(
+    Mux(io.lookLeft, PlayerAction.turnLeft, PlayerAction.idle),
+    Mux(io.lookRight, PlayerAction.turnRight, PlayerAction.idle),
+    Mux(io.moveForward, PlayerAction.moveForward, PlayerAction.idle),
+    Mux(io.moveBackward, PlayerAction.moveBackward, PlayerAction.idle)
+  )
+  scene.io.playerAction := action(index)
 
 }
 
