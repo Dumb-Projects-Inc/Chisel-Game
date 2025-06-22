@@ -10,6 +10,12 @@ import gameEngine.vec2.Vec2._
 
 class CircleEntity(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
     extends Module {
+
+  val screenWidth = 320
+  val invSinHalfFOV = toFP(1.0 / math.sin(fov / 2))
+  val halfScreen = toFP(screenWidth / 2.0)
+  val screenMax = screenWidth - 1
+
   val io = IO(new Bundle {
     val input = Flipped(Decoupled(new Bundle {
       val pos = new Vec2(SInt(FixedPointUtils.width.W))
@@ -18,8 +24,9 @@ class CircleEntity(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
     }))
 
     val output = Decoupled(new Bundle {
-      val radius = UInt(8.W)
+      val xOffset = UInt(9.W)
       val visible = Bool()
+      val invLen = SInt(FixedPointUtils.width.W)
     })
   })
 
@@ -39,8 +46,8 @@ class CircleEntity(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
 
   object S extends ChiselEnum {
     val idle, delta, deltaSquare1, deltaSquare2, computeCosNorm, normalize1,
-        normalize2, calcCos, stepInit, stepCompute, compueSinNorm, calcXoffset,
-        done =
+        normalize2, calcCos, stepInit, stepCompute, computeSinNorm1,
+        computeSinNorm2, calcXoffset1, calcXoffset2, done =
       Value
   }
   val state = RegInit(S.idle)
@@ -78,6 +85,9 @@ class CircleEntity(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
   val hitWall = RegInit(false.B)
   val stepIdx = RegInit(0.U(log2Ceil(steps).W))
   val step = Reg(new Vec2(SInt(FixedPointUtils.width.W)))
+
+  val xOffset = RegInit(0.S(FixedPointUtils.width.W))
+  val xScreen = RegInit(0.U(8.W))
 
   switch(state) {
     is(S.idle) {
@@ -146,21 +156,41 @@ class CircleEntity(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
 
         when(tile.x === targetTile.x && tile.y === targetTile.y) {
           // Reached sprite tile
-          state := S.done
+          state := S.computeSinNorm1
         }.elsewhen(mapVec(tile.y)(tile.x) === 1.B) {
           hitWall := true.B
-          state := S.done
         }.otherwise {
           curr := curr + step
           stepIdx := stepIdx + 1.U
         }
       }.otherwise {
-        state := S.done
+        state := S.computeSinNorm1
       }
+    }
+    is(S.computeSinNorm1) {
+      deltaSinNorm := deltaNorm.x.fpMul(triglut.io.sin)
+      state := S.computeSinNorm2
+    }
+    is(S.computeSinNorm2) {
+      deltaSinNorm := -(deltaSinNorm - deltaNorm.y.fpMul(triglut.io.cos))
+      state := S.calcXoffset1
+    }
+    is(S.calcXoffset1) {
+
+      xOffset := deltaSinNorm.fpMul(invSinHalfFOV).fpMul(halfScreen)
+
+      state := S.calcXoffset2
+    }
+    is(S.calcXoffset2) {
+      // Finalize xScreen
+      xScreen := ((xOffset + halfScreen) >> 12).asUInt(8, 0)
+      state := S.done
     }
     is(S.done) {
       val visible = cosAngleReg > toFP(math.cos(fov / 2.0))
       io.output.bits.visible := visible && !hitWall
+      io.output.bits.xOffset := Mux(xScreen > screenMax.U, screenMax.U, xScreen)
+      io.output.bits.invLen := deltaCosNorm
       io.output.valid := true.B
       when(io.output.ready) {
         state := S.idle

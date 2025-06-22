@@ -63,12 +63,18 @@ class Scene extends Module {
   val map = VecInit.tabulate(_map.length, _map(0).length) { (x, y) =>
     _map(x)(y).B
   }
-  val player = Module(new PlayerEntity(1.5, 1.5, math.Pi / 4.0, _map))
+  val player = Module(new PlayerEntity(2.5, 4.5, 3 * math.Pi / 4.0, _map))
 
   val rc = Module(new RaycasterCore(map = _map))
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
   val wall = Module(new ShadedWallEntity(doomPalette.length, 8, 9, 320))
-  // val heightsReg = RegInit(VecInit(Seq.fill(320)(0.U(log2Ceil(240).W))))
+  val circle = Module(new CircleEntity(map = _map))
+
+  circle.io.input.valid := false.B
+  circle.io.input.bits := DontCare
+
+  circle.io.output.ready := false.B
+
   val segmentsReg = RegInit(VecInit(Seq.fill(320)(WallSegment(240))))
   wall.io.segments := segmentsReg
 
@@ -87,7 +93,7 @@ class Scene extends Module {
 
   // Entity management
   object S extends ChiselEnum {
-    val idle, updatePlayer, render, draw = Value
+    val idle, updatePlayer, render, renderSprite1, renderSprite2, draw = Value
   }
 
   object RayState extends ChiselEnum {
@@ -98,6 +104,9 @@ class Scene extends Module {
 
   val (x, xWrap) = Counter(rayState === RayState.filling, 320)
   val (y, yWrap) = Counter(xWrap && (rayState === RayState.filling), 240)
+
+  val (circx, cxwrap) = Counter(circle.io.output.valid, 30)
+  val (circy, cywrap) = Counter(cxwrap, 30)
   val idx = RegInit(0.U(16.W))
 
   val actionPending = RegInit(PlayerAction.idle)
@@ -141,7 +150,9 @@ class Scene extends Module {
     is(S.updatePlayer) {
       hasPendingAction := false.B
       player.io.action.valid := true.B
-      state := S.render
+      when(player.io.action.ready) {
+        state := S.render
+      }
     }
 
     is(S.render) {
@@ -186,12 +197,40 @@ class Scene extends Module {
           when(xWrap && yWrap) { rayState := RayState.waiting }
         }
         is(RayState.waiting) {
-          state := S.draw
+          state := S.renderSprite1
           rayState := RayState.idle
         }
       }
 
     }
+    is(S.renderSprite1) {
+      circle.io.input.valid := true.B
+      circle.io.input.bits.pos := Vec2(toFP(1.5), toFP(1.5))
+      circle.io.input.bits.playerAngle := player.io.angle
+      circle.io.input.bits.playerPos := player.io.pos
+      when(circle.io.input.fire) {
+        state := S.renderSprite2
+      }
+    }
+    is(S.renderSprite2) {
+      when(circle.io.output.valid) {
+
+        // TODO: clamp the x coordinate to the screen width
+        buf.io.x := circx + circle.io.output.bits.xOffset
+        buf.io.y := circy
+        buf.io.wEnable := circle.io.output.bits.visible
+
+        buf.io.dataIn := 14.U
+
+        when(cxwrap && cywrap) {
+          state := S.draw
+          circle.io.output.ready := true.B
+
+        }
+
+      }
+    }
+
     is(S.draw) {
       // Draw the scene to the framebuffer
       buf.io.valid := true.B
