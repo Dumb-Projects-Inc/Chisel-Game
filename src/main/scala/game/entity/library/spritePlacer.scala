@@ -8,7 +8,7 @@ import gameEngine.fixed.InverseSqrt
 import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
 
-class CircleEntity(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
+class SpritePlacer(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
     extends Module {
 
   val screenWidth = 320

@@ -5,11 +5,11 @@ import org.scalatest.matchers.should.Matchers
 import chisel3._
 import chisel3.simulator.scalatest.ChiselSim
 
-import gameEngine.entity.CircleEntity
+import gameEngine.entity.SpriteEntity
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
-class CircleEntitySpec extends AnyFunSpec with ChiselSim with Matchers {
+class SpritePlacerSpec extends AnyFunSpec with ChiselSim with Matchers {
   it("should calculate visibility") {
     val map = Seq(
       Seq(1, 1, 1, 1, 1, 1, 1, 1, 1),
@@ -18,7 +18,7 @@ class CircleEntitySpec extends AnyFunSpec with ChiselSim with Matchers {
       Seq(1, 0, 0, 0, 0, 0, 0, 0, 1),
       Seq(1, 1, 1, 1, 1, 1, 1, 1, 1)
     )
-    simulate(new CircleEntity(map = map)) { dut =>
+    simulate(new SpritePlacer(map = map)) { dut =>
       dut.io.input.bits.pos.x.poke(toFP(2.0))
       dut.io.input.bits.pos.y.poke(toFP(2.0))
       dut.io.input.bits.playerPos.x.poke(toFP(1.5))
@@ -49,7 +49,7 @@ class CircleEntitySpec extends AnyFunSpec with ChiselSim with Matchers {
       Seq(1, 0, 0, 0, 1, 0, 0, 0, 1),
       Seq(1, 1, 1, 1, 1, 1, 1, 1, 1)
     )
-    simulate(new CircleEntity(map = map)) { dut =>
+    simulate(new SpritePlacer(map = map)) { dut =>
       dut.io.input.bits.pos.x.poke(toFP(6.5))
       dut.io.input.bits.pos.y.poke(toFP(2.5))
       dut.io.input.bits.playerPos.x.poke(toFP(2.5))
