@@ -103,7 +103,11 @@ class PalettedIndexSprite(
   val idxScale = s0 - 5.U
   val recip0 = recipLUT(idxScale)
 
-  val x0 = io.x;
+  val scaledW = (imageWidth.U * s0) / 100.U
+  val scaledH = (imageHeight.U * s0) / 100.U
+  /* val x0 = io.x; */
+  /* Clamped x */
+  val x0 = Mux(io.x >= scaledW, scaledW - 1.U, io.x);
   val y0 = io.y
 
   val rx1 = (RegNext(x0) * RegNext(recip0)) >> 14
@@ -111,15 +115,13 @@ class PalettedIndexSprite(
   val cx2 = RegNext(Mux(rx1 >= imageWidth.U, (imageWidth - 1).U, rx1))
   val cy2 = RegNext(Mux(ry1 >= imageHeight.U, (imageHeight - 1).U, ry1))
 
-  val scaledW = (imageWidth.U * s0) / 100.U
-  val scaledH = (imageHeight.U * s0) / 100.U
 
   // Quick fix for strange outside sprite bars (makes them transparent)
-  val outside = (x0 >= scaledW) || (y0 >= scaledH)
+  /* val outside = (x0 >= scaledW) || (y0 >= scaledH) */
 
   val rawIdx = idxROM(cy2)(cx2)
   val rawMask = maskROM(cy2)(cx2)
-  val finalMask = outside || rawMask
+  val finalMask = rawMask
   val finalIdx = Mux(finalMask, 0.U, rawIdx)
 
   io.idx := RegNext(finalIdx)

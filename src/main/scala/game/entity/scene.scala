@@ -20,6 +20,8 @@ import gameEngine.raycast._
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
 import gameEngine.raycast.RayHit
+import gameEngine.entity.library.BarrelEntity
+import gameEngine.entity.library.BobEntity
 
 class Scene extends Module {
 
@@ -69,6 +71,11 @@ class Scene extends Module {
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
   val wall = Module(new ShadedWallEntity(doomPalette.length, 8, 9, 320))
   val sprite = Module(new SpritePlacer(map = _map))
+  val bob = Module(new BobEntity(9, doomPalette, 25_000_000))
+  bob.io.setPos := DontCare
+  bob.io.screen := DontCare
+  bob.io.scale := 100.U
+  bob.io.setPos.wrEn := false.B
 
   sprite.io.input.valid := false.B
   sprite.io.input.bits := DontCare
@@ -105,8 +112,8 @@ class Scene extends Module {
   val (x, xWrap) = Counter(rayState === RayState.filling, 320)
   val (y, yWrap) = Counter(xWrap && (rayState === RayState.filling), 240)
 
-  val (circx, cxwrap) = Counter(sprite.io.output.valid, 30)
-  val (circy, cywrap) = Counter(cxwrap, 30)
+  val (circx, cxwrap) = Counter(sprite.io.output.valid, 320)
+  val (circy, cywrap) = Counter(cxwrap, 240)
   val idx = RegInit(0.U(16.W))
 
   val actionPending = RegInit(PlayerAction.idle)
@@ -214,13 +221,21 @@ class Scene extends Module {
     }
     is(S.renderSprite2) {
       when(sprite.io.output.valid) {
+        bob.io.setPos.wrEn := true.B
+        bob.io.scale := sprite.io.output.bits.invLen.fpMul(toFP(400)).asUInt(23,11)
+        bob.io.screen.x := circx
+        bob.io.screen.y := circy
+        bob.io.setPos.x := sprite.io.output.bits.xOffset
+        bob.io.setPos.y := 120.U + sprite.io.output.bits.invLen.fpMul(toFP(12)).asUInt(23,10)
 
         // TODO: clamp the x coordinate to the screen width
-        buf.io.x := circx + sprite.io.output.bits.xOffset
+        buf.io.x := circx
         buf.io.y := circy
-        buf.io.wEnable := sprite.io.output.bits.visible
+        buf.io.wEnable := sprite.io.output.bits.visible && bob.io.visible
 
-        buf.io.dataIn := 14.U
+        buf.io.dataIn := bob.io.pixel
+
+            
 
         when(cxwrap && cywrap) {
           state := S.draw

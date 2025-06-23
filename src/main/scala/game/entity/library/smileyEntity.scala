@@ -22,10 +22,6 @@ class BobEntity(
     val scale = Input(UInt(12.W))
     val visible = Output(Bool())
     val pixel = Output(UInt(log2Ceil(palette.length).W))
-    val moveUp = Input(Bool())
-    val moveDown = Input(Bool())
-    val moveRight = Input(Bool())
-    val moveLeft = Input(Bool())
   })
 
   val posX = RegInit(0.U(coordWidth.W))
@@ -54,22 +50,6 @@ class BobEntity(
     posY := io.setPos.y
   }
 
-  // States for trnasitioning between the the animation states
-  when(io.moveRight) {
-    stateReg := State.Right
-  }.elsewhen(io.moveLeft) {
-    stateReg := State.Left
-  }.elsewhen(io.moveUp) {
-    stateReg := State.Away
-  }.elsewhen(io.moveDown) {
-    stateReg := State.Towards
-  }.elsewhen(scaleUp) {
-    stateReg := State.Towards
-  }.elsewhen(scaleDown) {
-    stateReg := State.Away
-  }.otherwise {
-    stateReg := State.Idle
-  }
 
   // Frame toggle logic that toggles between 1 and 0 every input period.
   private val cntWidth = log2Ceil(period + 1)

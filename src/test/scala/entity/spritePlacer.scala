@@ -5,7 +5,6 @@ import org.scalatest.matchers.should.Matchers
 import chisel3._
 import chisel3.simulator.scalatest.ChiselSim
 
-import gameEngine.entity.SpriteEntity
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
 import gameEngine.vec2.Vec2._
