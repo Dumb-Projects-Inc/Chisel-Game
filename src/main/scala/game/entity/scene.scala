@@ -20,7 +20,6 @@ import gameEngine.raycast._
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
 import gameEngine.raycast.RayHit
-import gameEngine.entity.library.BarrelEntity
 import gameEngine.entity.library.BobEntity
 import gameEngine.util
 import gameEngine.util.uart._
@@ -122,7 +121,7 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
   // Entity management
   object S extends ChiselEnum {
     val idle, updatePlayer, checkWin, render, renderSprite1, renderSprite2,
-        draw, win, done = Value
+        draw, win = Value
   }
 
   object RayState extends ChiselEnum {
@@ -135,11 +134,9 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
   val (y, yWrap) = Counter(xWrap && (rayState === RayState.filling), 240)
 
   val (circx, cxwrap) = Counter(sprite.io.output.valid, 320)
-  val (circy, cywrap) = Counter(cxwrap, 240)
+  val (circy, cywrap) = Counter(cxwrap , 240)
   val idx = RegInit(0.U(16.W))
 
-  val (winx, wxwrap) = Counter(state === S.win, 320)
-  val (winy, wywrap) = Counter(wxwrap, 320)
 
   val actionPending = RegInit(PlayerAction.idle)
   val hasPendingAction = RegInit(false.B)
@@ -172,6 +169,12 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
     }
   }
 
+  val pXint = (player.io.pos.x.asUInt >> 12)
+  val pYint = (player.io.pos.y.asUInt >> 12)
+  val bXint = (posExchange.io.bobPos.bits.x.asUInt >> 12)
+  val bYint = (posExchange.io.bobPos.bits.y.asUInt >> 12)
+  val sameTile = (pXint === bXint) && (pYint === bYint)
+
   switch(state) {
     is(S.idle) {
       // Wait for input or trigger to start updating
@@ -189,7 +192,7 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
     }
 
     is(S.checkWin) {
-      when(invSpritelen > toFP(0.5)) {
+      when(sameTile) {
         state := S.win
       }.otherwise {
         state := S.render
@@ -292,17 +295,9 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
     }
 
     is(S.win) {
-      // Display win screen
-      buf.io.x := winx
-      buf.io.y := winy
-      buf.io.wEnable := true.B
-      buf.io.dataIn := 14.U // White color for the win screen
-      when(wxwrap && wywrap) {
-        buf.io.valid := true.B
-        state := S.done
-      }
+      // nothing
     }
-    is(S.done) { /*Do nothing*/ }
+
   }
 
   io.vga := buf.io.vga
