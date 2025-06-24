@@ -222,11 +222,15 @@ class Scene extends Module {
     is(S.renderSprite2) {
       when(sprite.io.output.valid) {
         bob.io.setPos.wrEn := true.B
-        bob.io.scale := sprite.io.output.bits.invLen.fpMul(toFP(400)).asUInt(23,11)
+        bob.io.scale := sprite.io.output.bits.invLen
+          .fpMul(toFP(400))
+          .asUInt(23, 11)
         bob.io.screen.x := circx
         bob.io.screen.y := circy
         bob.io.setPos.x := sprite.io.output.bits.xOffset
-        bob.io.setPos.y := 120.U + sprite.io.output.bits.invLen.fpMul(toFP(12)).asUInt(23,10)
+        bob.io.setPos.y := 120.U + sprite.io.output.bits.invLen
+          .fpMul(toFP(12))
+          .asUInt(23, 10)
 
         // TODO: clamp the x coordinate to the screen width
         buf.io.x := circx
@@ -234,8 +238,6 @@ class Scene extends Module {
         buf.io.wEnable := sprite.io.output.bits.visible && bob.io.visible
 
         buf.io.dataIn := bob.io.pixel
-
-            
 
         when(cxwrap && cywrap) {
           state := S.draw

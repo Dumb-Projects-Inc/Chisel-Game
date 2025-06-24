@@ -50,7 +50,6 @@ class BobEntity(
     posY := io.setPos.y
   }
 
-
   // Frame toggle logic that toggles between 1 and 0 every input period.
   private val cntWidth = log2Ceil(period + 1)
   val frameCnt = RegInit(0.U(cntWidth.W))
