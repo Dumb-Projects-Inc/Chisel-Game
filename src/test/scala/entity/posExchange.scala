@@ -7,45 +7,71 @@ import chisel3.simulator.scalatest.ChiselSim
 import gameEngine.fixed.FixedPointUtils._
 import gameEngine.vec2.Vec2
 import scala.collection.mutable.ArrayBuffer
-
-class PosExchangeSimpleSpec extends AnyFunSpec with ChiselSim with Matchers {
-  it("exchanges a single Vec2 over UART") {
+import gameEngine.fixed.FixedPointUtils
+class PosExchangeSpec extends AnyFunSpec with ChiselSim with Matchers {
+  it("round-trips a Vec2 over UART") {
     simulate(new posExchange) { dut =>
-      // drive ready for send
-      dut.io.out.ready.poke(true.B)
-      // push one playerPos
-      val xIn = toFP(3.5)
-      val yIn = toFP(-1.25)
-      dut.io.playerPos.bits.x.poke(xIn)
-      dut.io.playerPos.bits.y.poke(yIn)
-      dut.io.playerPos.valid.poke(true.B)
-      dut.clock.step()
-      dut.io.playerPos.valid.poke(false.B)
+      // === INITIALIZE ALL INPUT SINKS ===
+      dut.io.playerPos.valid .poke(false.B)
+      dut.io.playerPos.bits.x.poke(0.S)
+      dut.io.playerPos.bits.y.poke(0.S)
+      dut.io.out.ready      .poke(false.B)
+      dut.io.in.valid       .poke(false.B)
+      dut.io.in.bits        .poke(0.U)
+      dut.io.bobPos.ready   .poke(false.B)
+      dut.io.bobPos.valid   .poke(true.B)
+      dut.clock.step()    // settle
 
-      val rxBytes = ArrayBuffer[Int]()
-      var recvIdx = 0
-      // loop until bobPos appears
-      while (!dut.io.bobPos.valid.peek().litToBoolean) {
-        // collect outgoing bytes
+      // === SET UP HANDSHAKE FOR A SINGLE TRANSFER ===
+      val xFP   = toFP(1.5)    // SInt fixed-point
+      val yFP   = toFP(-0.5)
+      val xExp  = BigInt(xFP.litValue.toLong)
+      val yExp  = BigInt(yFP.litValue.toLong)
+
+      // enable out ready so send can proceed
+      dut.io.out.ready.poke(true.B)
+      // pulse playerPos.valid/bits
+      dut.io.playerPos.bits.x.poke(xFP)
+      dut.io.playerPos.bits.y.poke(yFP)
+      dut.io.playerPos.valid .poke(true.B)
+      dut.clock.step()
+      dut.io.playerPos.valid .poke(false.B)
+
+      // collect the outgoing bytes
+      val W         = FixedPointUtils.width
+      val TOTAL_BITS= 2 * W
+      val nBytes    = (TOTAL_BITS + 7) / 8
+      val sent      = ArrayBuffer[BigInt]()
+      while (sent.size < nBytes) {
         if (dut.io.out.valid.peek().litToBoolean) {
-          rxBytes += dut.io.out.bits.peek().litValue.toInt
-        }
-        // when ready, feed them back in
-        if (dut.io.in.ready.peek().litToBoolean && recvIdx < rxBytes.size) {
-          dut.io.in.valid.poke(true.B)
-          dut.io.in.bits.poke(rxBytes(recvIdx).U)
-          recvIdx += 1
-        } else {
-          dut.io.in.valid.poke(false.B)
+          sent += dut.io.out.bits.peek().litValue
         }
         dut.clock.step()
       }
 
-      // once valid, sample bobPos
-      val W = 24 // Set this to the correct fixed-point width used in your design
-      val xOut = dut.io.bobPos.bits.x.peek().litValue.toDouble / (1 << (W-1)) // adjust for fixed point
-      val yOut = dut.io.bobPos.bits.y.peek().litValue.toDouble / (1 << (W-1))
-      println(f"received bobPos.x = $xOut%.3f, bobPos.y = $yOut%.3f")
+      // prepare to accept bobPos
+      dut.io.bobPos.ready.poke(true.B)
+
+      // feed them back into `in`
+      var idx = 0
+      while (!dut.io.bobPos.valid.peek().litToBoolean) {
+        if (idx < sent.size) {
+          dut.io.in.bits .poke(sent(idx).U)
+          dut.io.in.valid.poke(true.B)
+        } else {
+          dut.io.in.valid.poke(false.B)
+        }
+        dut.clock.step()
+        if (dut.io.in.valid.peek().litToBoolean && dut.io.in.ready.peek().litToBoolean) {
+          idx += 1
+        }
+      }
+
+      // finally check results
+      val outX = dut.io.bobPos.bits.x.peek().litValue
+      val outY = dut.io.bobPos.bits.y.peek().litValue
+      outX shouldEqual xExp
+      outY shouldEqual yExp
     }
   }
 }

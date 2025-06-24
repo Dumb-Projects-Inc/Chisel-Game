@@ -76,8 +76,8 @@ class Scene extends Module {
   val player = Module(new PlayerEntity(2.5, 4.5, 3 * math.Pi / 4.0, _map))
   val sprite = Module(new SpritePlacer(map = _map))
 
-  val rx = Module(new Rx(50_000_000, 115200))
-  val txBuf = Module(new BufferedTx(50_000_000, 115200))
+  val rx = Module(new Rx(100_000_000, 115200))
+  val txBuf = Module(new BufferedTx(100_000_000, 115200))
   val posExchange = Module(new gameEngine.util.posExchange)
 
   rx.io.rxd := io.rxd
@@ -194,7 +194,6 @@ class Scene extends Module {
           rc.io.in.valid := true.B
           rc.io.in.bits.start := player.io.pos
           rc.io.in.bits.angle := player.io.angle
-          posExchange.io.playerPos.bits := player.io.pos
           when(rc.io.in.ready) {
             idx := 0.U
             rayState := RayState.calculate
@@ -252,7 +251,7 @@ class Scene extends Module {
         bob.io.screen.x := circx
         bob.io.screen.y := circy
         bob.io.setPos.x := sprite.io.output.bits.xOffset
-        bob.io.setPos.y := 120.U + sprite.io.output.bits.invLen.fpMul(toFP(12)).asUInt(23,10)
+        bob.io.setPos.y := 120.U + sprite.io.output.bits.invLen.fpMul(toFP(8)).asUInt(23,10)
 
         // TODO: clamp the x coordinate to the screen width
         buf.io.x := circx

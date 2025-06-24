@@ -29,8 +29,6 @@ class posExchange extends Module {
   val outVec   = Reg(new Vec2(SInt(W.W)))
   val bobValid = RegInit(false.B)
 
-  private val WAIT_MSG = VecInit("waiting\n".map(_.U(8.W)))
-  private val waitPtr  = RegInit(0.U(log2Ceil(WAIT_MSG.length).W))
 
   io.playerPos.ready := state === S.idle
   io.out.valid := state === S.send
@@ -67,12 +65,6 @@ class posExchange extends Module {
           outVec.y  := recvReg(W - 1,     0).asSInt
           bobValid  := true.B
           state     := S.idle
-        }
-      }.elsewhen(!io.in.valid) {
-        io.out.valid := true.B
-        io.out.bits  := WAIT_MSG(waitPtr)
-        when(io.out.fire) {
-          waitPtr := Mux(waitPtr === (WAIT_MSG.length - 1).U, 0.U, waitPtr + 1.U)
         }
       }
     }
