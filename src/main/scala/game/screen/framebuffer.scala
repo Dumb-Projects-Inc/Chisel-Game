@@ -62,14 +62,15 @@ class DualPaletteFrameBuffer(
   buffer1.io.y := 0.U
 
   val vga = Module(new VGATiming)
-  io.vga.hsync := vga.io.hSync
-  io.vga.vsync := vga.io.vSync
+  io.vga.hsync := RegNext(vga.io.hSync)
+  io.vga.vsync := RegNext(vga.io.vSync)
+  val visible = RegNext(vga.io.visible)
 
   val pixelIdx = WireDefault(0.U(log2Ceil(numColors).W))
   val color = pal(pixelIdx)
-  io.vga.red := Mux(vga.io.visible, color(11, 8), 0.U(4.W))
-  io.vga.green := Mux(vga.io.visible, color(7, 4), 0.U(4.W))
-  io.vga.blue := Mux(vga.io.visible, color(3, 0), 0.U(4.W))
+  io.vga.red := Mux(visible, color(11, 8), 0.U(4.W))
+  io.vga.green := Mux(visible, color(7, 4), 0.U(4.W))
+  io.vga.blue := Mux(visible, color(3, 0), 0.U(4.W))
 
   val newFrame = vga.io.vSync & !RegNext(vga.io.vSync)
   when(newFrame & io.valid) {
