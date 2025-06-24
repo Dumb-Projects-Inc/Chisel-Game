@@ -29,9 +29,15 @@ class Engine extends Module {
     val lookLeft = Input(Bool())
     val moveForward = Input(Bool())
     val moveBackward = Input(Bool())
+    val txd = Output(Bool())
+    val rxd = Input(Bool())
   })
 
+
+
   val scene = Module(new Scene)
+  scene.io.rxd := io.rxd
+  io.txd := scene.io.txd
   io.vga := scene.io.vga
 
   val (tickCnt, tick) = Counter(true.B, 500000) // 2000000 / 4 = 500000
@@ -55,6 +61,8 @@ class TopModule( /*game input when io works*/ ) extends Module {
     val lookLeft = Input(Bool())
     val moveForward = Input(Bool())
     val moveBackward = Input(Bool())
+    val txd = Output(Bool())
+    val rxd = Input(Bool())
   })
 
   val clk50MHz = Wire(Clock())
@@ -69,6 +77,7 @@ class TopModule( /*game input when io works*/ ) extends Module {
   clk50MHz := pll.io.clk50MHz
   locked := pll.io.locked
   // $COVERAGE-ON$
+  
 
   withClockAndReset(clk50MHz, !locked) {
     val engine = Module(new Engine)
@@ -77,6 +86,8 @@ class TopModule( /*game input when io works*/ ) extends Module {
     engine.io.lookRight := io.lookRight
     engine.io.moveForward := io.moveForward
     engine.io.moveBackward := io.moveBackward
+    engine.io.rxd := io.rxd
+    io.txd := engine.io.txd
   }
 }
 
