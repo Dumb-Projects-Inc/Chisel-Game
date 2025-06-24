@@ -9,26 +9,25 @@ class UartIO extends DecoupledIO(UInt(8.W))
 
 class posExchange extends Module {
   val io = IO(new Bundle {
-    val in        = Flipped(new UartIO)
-    val out       = new UartIO
+    val in = Flipped(new UartIO)
+    val out = new UartIO
     val playerPos = Flipped(Decoupled(new Vec2(SInt(FixedPointUtils.width.W))))
-    val bobPos    = Decoupled(   new Vec2(SInt(FixedPointUtils.width.W)))
+    val bobPos = Decoupled(new Vec2(SInt(FixedPointUtils.width.W)))
   })
 
-  val W          = FixedPointUtils.width
+  val W = FixedPointUtils.width
   val TOTAL_BITS = 2 * W
-  val N_BYTES    = (TOTAL_BITS + 7) / 8
+  val N_BYTES = (TOTAL_BITS + 7) / 8
 
   object S extends ChiselEnum {
     val idle, send, recv = Value
   }
-  val state    = RegInit(S.idle)
-  val idx  = RegInit(0.U(log2Ceil(N_BYTES + 1).W))
-  val sendReg  = Reg(UInt(TOTAL_BITS.W))
-  val recvReg  = Reg(UInt(TOTAL_BITS.W))
-  val outVec   = Reg(new Vec2(SInt(W.W)))
+  val state = RegInit(S.idle)
+  val idx = RegInit(0.U(log2Ceil(N_BYTES + 1).W))
+  val sendReg = Reg(UInt(TOTAL_BITS.W))
+  val recvReg = Reg(UInt(TOTAL_BITS.W))
+  val outVec = Reg(new Vec2(SInt(W.W)))
   val bobValid = RegInit(false.B)
-
 
   io.playerPos.ready := state === S.idle
   io.out.valid := state === S.send
@@ -40,11 +39,11 @@ class posExchange extends Module {
   switch(state) {
     is(S.idle) {
       when(io.playerPos.fire) {
-        sendReg  := Cat(io.playerPos.bits.x.asUInt, io.playerPos.bits.y.asUInt)
-        idx  := 0.U
-        recvReg  := 0.U
+        sendReg := Cat(io.playerPos.bits.x.asUInt, io.playerPos.bits.y.asUInt)
+        idx := 0.U
+        recvReg := 0.U
         bobValid := false.B
-        state    := S.send
+        state := S.send
       }
     }
     is(S.send) {
@@ -52,7 +51,7 @@ class posExchange extends Module {
         idx := idx + 1.U
         when(idx === (N_BYTES - 1).U) {
           idx := 0.U
-          state   := S.recv
+          state := S.recv
         }
       }
     }
@@ -61,10 +60,10 @@ class posExchange extends Module {
         recvReg := recvReg | (io.in.bits.asUInt << ((N_BYTES.U - 1.U - idx) << 3))
         idx := idx + 1.U
         when(idx === (N_BYTES - 1).U) {
-          outVec.x  := recvReg(TOTAL_BITS - 1, W).asSInt
-          outVec.y  := recvReg(W - 1,     0).asSInt
-          bobValid  := true.B
-          state     := S.idle
+          outVec.x := recvReg(TOTAL_BITS - 1, W).asSInt
+          outVec.y := recvReg(W - 1, 0).asSInt
+          bobValid := true.B
+          state := S.idle
         }
       }
     }
