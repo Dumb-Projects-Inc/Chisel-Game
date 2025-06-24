@@ -25,8 +25,7 @@ import gameEngine.entity.library.BobEntity
 import gameEngine.util
 import gameEngine.util.uart._
 
-
-class Scene extends Module {
+class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
 
   val io = IO(new Bundle {
     val playerAction = Input(PlayerAction())
@@ -34,9 +33,6 @@ class Scene extends Module {
     val txd = Output(Bool())
     val rxd = Input(Bool())
   })
-
-
-
 
   val doomPalette = Seq(
     "h000".U(12.W), // #000000
@@ -56,7 +52,7 @@ class Scene extends Module {
     "hFF0".U(12.W), // #FFFF00
 
     "hA00".U(12.W), // #AA0000
-    "hF00".U(12.W), // #FF0000
+    "h0F0".U(12.W), // #FF0000
     "h08F".U(12.W) // #0088FF
   )
 
@@ -73,8 +69,11 @@ class Scene extends Module {
   val map = VecInit.tabulate(_map.length, _map(0).length) { (x, y) =>
     _map(x)(y).B
   }
-  val player = Module(new PlayerEntity(2.5, 4.5, 3 * math.Pi / 4.0, _map))
+  val player = Module(
+    new PlayerEntity(playerX, playerY, 3 * math.Pi / 4.0, _map)
+  )
   val sprite = Module(new SpritePlacer(map = _map))
+  val invSpritelen = RegInit(toFP(0.0))
 
   val rx = Module(new Rx(100_000_000, 115200))
   val txBuf = Module(new BufferedTx(100_000_000, 115200))
@@ -88,7 +87,6 @@ class Scene extends Module {
   posExchange.io.playerPos.bits <> player.io.pos
   posExchange.io.playerPos.valid := false.B
   posExchange.io.bobPos.ready := sprite.io.input.ready
-
 
   val rc = Module(new RaycasterCore(map = _map))
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
@@ -123,7 +121,8 @@ class Scene extends Module {
 
   // Entity management
   object S extends ChiselEnum {
-    val idle, updatePlayer, render, renderSprite1, renderSprite2, draw = Value
+    val idle, updatePlayer, checkWin, render, renderSprite1, renderSprite2,
+        draw, win, done = Value
   }
 
   object RayState extends ChiselEnum {
@@ -138,6 +137,9 @@ class Scene extends Module {
   val (circx, cxwrap) = Counter(sprite.io.output.valid, 320)
   val (circy, cywrap) = Counter(cxwrap, 240)
   val idx = RegInit(0.U(16.W))
+
+  val (winx, wxwrap) = Counter(state === S.win, 320)
+  val (winy, wywrap) = Counter(wxwrap, 320)
 
   val actionPending = RegInit(PlayerAction.idle)
   val hasPendingAction = RegInit(false.B)
@@ -170,7 +172,6 @@ class Scene extends Module {
     }
   }
 
-
   switch(state) {
     is(S.idle) {
       // Wait for input or trigger to start updating
@@ -183,6 +184,14 @@ class Scene extends Module {
       player.io.action.valid := true.B
       when(player.io.action.ready) {
         posExchange.io.playerPos.valid := true.B
+        state := S.checkWin
+      }
+    }
+
+    is(S.checkWin) {
+      when(invSpritelen > toFP(0.5)) {
+        state := S.win
+      }.otherwise {
         state := S.render
       }
     }
@@ -246,6 +255,7 @@ class Scene extends Module {
     }
     is(S.renderSprite2) {
       when(sprite.io.output.valid) {
+        invSpritelen := sprite.io.output.bits.invLen
         bob.io.setPos.wrEn := true.B
         bob.io.scale := sprite.io.output.bits.invLen
           .fpMul(toFP(400))
@@ -253,9 +263,9 @@ class Scene extends Module {
         bob.io.screen.x := circx
         bob.io.screen.y := circy
         bob.io.setPos.x := sprite.io.output.bits.xOffset
-        bob.io.setPos.y := 120.U + sprite.io.output.bits.invLen.fpMul(toFP(8)).asUInt(23,10)
-
-        
+        bob.io.setPos.y := 120.U + sprite.io.output.bits.invLen
+          .fpMul(toFP(8))
+          .asUInt(23, 10)
 
         // TODO: clamp the x coordinate to the screen width
         buf.io.x := circx
@@ -280,6 +290,19 @@ class Scene extends Module {
         state := S.idle
       }
     }
+
+    is(S.win) {
+      // Display win screen
+      buf.io.x := winx
+      buf.io.y := winy
+      buf.io.wEnable := true.B
+      buf.io.dataIn := 14.U // White color for the win screen
+      when(wxwrap && wywrap) {
+        buf.io.valid := true.B
+        state := S.done
+      }
+    }
+    is(S.done) { /*Do nothing*/ }
   }
 
   io.vga := buf.io.vga
