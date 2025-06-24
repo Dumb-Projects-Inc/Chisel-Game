@@ -23,6 +23,7 @@ import gameEngine.raycast.RayHit
 import gameEngine.entity.library.BobEntity
 import gameEngine.util
 import gameEngine.util.uart._
+import gameEngine.entity.library.EndScreenEntity
 
 class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
 
@@ -92,6 +93,18 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
   val wall = Module(new ShadedWallEntity(doomPalette.length, 8, 9, 320))
   val bob = Module(new BobEntity(9, doomPalette, 25_000_000))
 
+  val doneX = RegInit(0.U(9.W))
+  val doneY = RegInit(0.U(8.W))
+  val backgroundColor = 0.U(12.W)
+
+  val endScreen = Module(new EndScreenEntity(16, doomPalette))
+  endScreen.io.scale := 100.U
+  endScreen.io.setPos.x := 0.U
+  endScreen.io.setPos.y := 0.U
+  endScreen.io.screen.x := doneX
+  endScreen.io.screen.y := doneY
+  endScreen.io.setPos.wrEn := false.B
+
   bob.io.setPos := DontCare
   bob.io.screen := DontCare
   bob.io.scale := 100.U
@@ -121,7 +134,7 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
   // Entity management
   object S extends ChiselEnum {
     val idle, updatePlayer, checkWin, render, renderSprite1, renderSprite2,
-        draw, win = Value
+        draw, winSetup, win = Value
   }
 
   object RayState extends ChiselEnum {
@@ -134,9 +147,8 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
   val (y, yWrap) = Counter(xWrap && (rayState === RayState.filling), 240)
 
   val (circx, cxwrap) = Counter(sprite.io.output.valid, 320)
-  val (circy, cywrap) = Counter(cxwrap , 240)
+  val (circy, cywrap) = Counter(cxwrap, 240)
   val idx = RegInit(0.U(16.W))
-
 
   val actionPending = RegInit(PlayerAction.idle)
   val hasPendingAction = RegInit(false.B)
@@ -193,7 +205,7 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
 
     is(S.checkWin) {
       when(sameTile) {
-        state := S.win
+        state := S.winSetup
       }.otherwise {
         state := S.render
       }
@@ -292,10 +304,37 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
       when(buf.io.newFrame) {
         state := S.idle
       }
+      endScreen.io.setPos.wrEn := true.B
+      endScreen.io.setPos.x := 0.U
+      endScreen.io.setPos.y := 0.U
     }
 
+    is(S.winSetup) {
+      endScreen.io.setPos.wrEn := false.B
+      doneX := 0.U;
+      doneY := 0.U
+      state := S.win
+    }
     is(S.win) {
-      // nothing
+      buf.io.valid := true.B
+      buf.io.x := doneX
+      buf.io.y := doneY
+      buf.io.wEnable := true.B
+      buf.io.dataIn := Mux(
+        endScreen.io.visible,
+        endScreen.io.pixel,
+        backgroundColor
+      )
+      when(doneX === 319.U) {
+        doneX := 0.U
+        when(doneY === 239.U) {
+          doneY := 0.U
+        }.otherwise {
+          doneY := doneY + 1.U
+        }
+      }.otherwise {
+        doneX := doneX + 1.U
+      }
     }
 
   }
