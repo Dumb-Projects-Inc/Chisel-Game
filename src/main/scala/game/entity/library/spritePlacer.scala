@@ -87,7 +87,7 @@ class SpritePlacer(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
   val step = Reg(new Vec2(SInt(FixedPointUtils.width.W)))
 
   val xOffset = RegInit(0.S(FixedPointUtils.width.W))
-  val xScreen = RegInit(0.U(8.W))
+  val xScreen = RegInit(0.U(9.W))
 
   switch(state) {
     is(S.idle) {
@@ -183,7 +183,7 @@ class SpritePlacer(fov: Double = 1.5, map: Seq[Seq[Int]] = Seq.empty)
     }
     is(S.calcXoffset2) {
       // Finalize xScreen
-      xScreen := ((xOffset + halfScreen) >> 12).asUInt(8, 0)
+      xScreen := ((xOffset + halfScreen) >> 12).asUInt(9, 0)
       state := S.done
     }
     is(S.done) {
