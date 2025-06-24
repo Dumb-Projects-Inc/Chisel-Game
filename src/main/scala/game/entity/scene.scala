@@ -22,13 +22,21 @@ import gameEngine.vec2.Vec2
 import gameEngine.raycast.RayHit
 import gameEngine.entity.library.BarrelEntity
 import gameEngine.entity.library.BobEntity
+import gameEngine.util
+import gameEngine.util.uart._
+
 
 class Scene extends Module {
 
   val io = IO(new Bundle {
     val playerAction = Input(PlayerAction())
     val vga = new VGAInterface
+    val txd = Output(Bool())
+    val rxd = Input(Bool())
   })
+
+
+
 
   val doomPalette = Seq(
     "h000".U(12.W), // #000000
@@ -66,12 +74,27 @@ class Scene extends Module {
     _map(x)(y).B
   }
   val player = Module(new PlayerEntity(2.5, 4.5, 3 * math.Pi / 4.0, _map))
+  val sprite = Module(new SpritePlacer(map = _map))
+
+  val rx = Module(new Rx(50_000_000, 115200))
+  val txBuf = Module(new BufferedTx(50_000_000, 115200))
+  val posExchange = Module(new gameEngine.util.posExchange)
+
+  rx.io.rxd := io.rxd
+  txBuf.io.channel <> posExchange.io.out
+  posExchange.io.in <> rx.io.channel
+  io.txd := txBuf.io.txd
+
+  posExchange.io.playerPos.bits <> player.io.pos
+  posExchange.io.playerPos.valid := false.B
+  posExchange.io.bobPos.ready := sprite.io.input.ready
+
 
   val rc = Module(new RaycasterCore(map = _map))
   val buf = Module(new DualPaletteFrameBuffer(doomPalette))
   val wall = Module(new ShadedWallEntity(doomPalette.length, 8, 9, 320))
-  val sprite = Module(new SpritePlacer(map = _map))
   val bob = Module(new BobEntity(9, doomPalette, 25_000_000))
+
   bob.io.setPos := DontCare
   bob.io.screen := DontCare
   bob.io.scale := 100.U
@@ -147,6 +170,7 @@ class Scene extends Module {
     }
   }
 
+
   switch(state) {
     is(S.idle) {
       // Wait for input or trigger to start updating
@@ -158,6 +182,7 @@ class Scene extends Module {
       hasPendingAction := false.B
       player.io.action.valid := true.B
       when(player.io.action.ready) {
+        posExchange.io.playerPos.valid := true.B
         state := S.render
       }
     }
@@ -169,6 +194,7 @@ class Scene extends Module {
           rc.io.in.valid := true.B
           rc.io.in.bits.start := player.io.pos
           rc.io.in.bits.angle := player.io.angle
+          posExchange.io.playerPos.bits := player.io.pos
           when(rc.io.in.ready) {
             idx := 0.U
             rayState := RayState.calculate
@@ -212,7 +238,7 @@ class Scene extends Module {
     }
     is(S.renderSprite1) {
       sprite.io.input.valid := true.B
-      sprite.io.input.bits.pos := Vec2(toFP(1.5), toFP(1.5))
+      sprite.io.input.bits.pos := posExchange.io.bobPos.bits
       sprite.io.input.bits.playerAngle := player.io.angle
       sprite.io.input.bits.playerPos := player.io.pos
       when(sprite.io.input.fire) {

@@ -96,9 +96,9 @@ set_property PACKAGE_PIN U17 [get_ports io_moveBackward]
 
 ##Pmod Header JB
 ##Sch name = JB1
-#set_property PACKAGE_PIN A14 [get_ports {JB[0]}]					
+set_property PACKAGE_PIN A14 [get_ports {io_txd}]					
 	##Sch name = JB2
-#set_property PACKAGE_PIN A16 [get_ports {JB[1]}]					
+set_property PACKAGE_PIN A16 [get_ports {io_rxd}]					
 	##Sch name = JB3
 #set_property PACKAGE_PIN B15 [get_ports {JB[2]}]					
 	##Sch name = JB4
@@ -170,9 +170,9 @@ set_property PACKAGE_PIN P19 [get_ports io_vga_hsync]
 set_property PACKAGE_PIN R19 [get_ports io_vga_vsync]						
 
 
-##USB-RS232 Interface
-#set_property PACKAGE_PIN B18 [get_ports RsRx]						
-	#set_property PACKAGE_PIN A18 [get_ports RsTx]						
+##USB-RS232 Interface		
+#set_property PACKAGE_PIN A18 [get_ports io_txd]
+#set_property PACKAGE_PIN B18 [get_ports io_rxd]			
 	
 
 ##USB HID (PS/2)
