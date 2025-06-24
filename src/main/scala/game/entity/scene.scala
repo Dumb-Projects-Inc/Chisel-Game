@@ -134,9 +134,8 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
   val (y, yWrap) = Counter(xWrap && (rayState === RayState.filling), 240)
 
   val (circx, cxwrap) = Counter(sprite.io.output.valid, 320)
-  val (circy, cywrap) = Counter(cxwrap , 240)
+  val (circy, cywrap) = Counter(cxwrap, 240)
   val idx = RegInit(0.U(16.W))
-
 
   val actionPending = RegInit(PlayerAction.idle)
   val hasPendingAction = RegInit(false.B)

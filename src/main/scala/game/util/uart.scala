@@ -6,15 +6,12 @@ import gameEngine.vec2.Vec2
 import gameEngine.fixed.FixedPointUtils
 
 //- start uart_channel
-class UartIO extends DecoupledIO(UInt(8.W)) {
-}
+class UartIO extends DecoupledIO(UInt(8.W)) {}
 //- end
 
-/**
- * Transmit part of the UART.
- * A minimal version without any additional buffering.
- * Use a ready/valid handshaking.
- */
+/** Transmit part of the UART. A minimal version without any additional
+  * buffering. Use a ready/valid handshaking.
+  */
 //- start uart_tx
 class Tx(frequency: Int, baudRate: Int) extends Module {
   val io = IO(new Bundle {
@@ -38,30 +35,28 @@ class Tx(frequency: Int, baudRate: Int) extends Module {
       val shift = shiftReg >> 1
       shiftReg := 1.U ## shift(9, 0)
       bitsReg := bitsReg - 1.U
-    } .otherwise {
+    }.otherwise {
       when(io.channel.valid) {
         // two stop bits, data, one start bit
         shiftReg := 3.U ## io.channel.bits ## 0.U
         bitsReg := 11.U
-      } .otherwise {
+      }.otherwise {
         shiftReg := 0x7ff.U
       }
     }
 
-  } .otherwise {
+  }.otherwise {
     cntReg := cntReg - 1.U
   }
 }
 //- end
 
-/**
- * Receive part of the UART.
- * A minimal version without any additional buffering.
- * Use a ready/valid handshaking.
- *
- * The following code is inspired by Tommy's receive code at:
- * https://github.com/tommythorn/yarvi
- */
+/** Receive part of the UART. A minimal version without any additional
+  * buffering. Use a ready/valid handshaking.
+  *
+  * The following code is inspired by Tommy's receive code at:
+  * https://github.com/tommythorn/yarvi
+  */
 //- start uart_rx
 class Rx(frequency: Int, baudRate: Int) extends Module {
   val io = IO(new Bundle {
@@ -70,7 +65,8 @@ class Rx(frequency: Int, baudRate: Int) extends Module {
   })
 
   val BIT_CNT = ((frequency + baudRate / 2) / baudRate - 1)
-  val START_CNT = ((3 * frequency / 2 + baudRate / 2) / baudRate - 2) // -2 for the falling delay
+  val START_CNT =
+    ((3 * frequency / 2 + baudRate / 2) / baudRate - 2) // -2 for the falling delay
 
   // Sync in the asynchronous RX data
   val rxReg = RegNext(RegNext(io.rxd, 0.U), 0.U)
@@ -105,9 +101,8 @@ class Rx(frequency: Int, baudRate: Int) extends Module {
 }
 //- end
 
-/**
- * A single byte buffer with a ready/valid interface
- */
+/** A single byte buffer with a ready/valid interface
+  */
 //- start uart_buffer
 class Buffer extends Module {
   val io = IO(new Bundle {
@@ -131,7 +126,7 @@ class Buffer extends Module {
       dataReg := io.in.bits
       stateReg := full
     }
-  } .otherwise { // full
+  }.otherwise { // full
     when(io.out.ready) {
       stateReg := empty
     }
@@ -140,9 +135,8 @@ class Buffer extends Module {
 }
 //- end
 
-/**
- * A transmitter with a single buffer.
- */
+/** A transmitter with a single buffer.
+  */
 //- start uart_buffered_tx
 class BufferedTx(frequency: Int, baudRate: Int) extends Module {
   val io = IO(new Bundle {
@@ -158,10 +152,8 @@ class BufferedTx(frequency: Int, baudRate: Int) extends Module {
 }
 //- end
 
-/**
- * Send a string.
- * I changed the code to use msg instead of a fixed string.
- */
+/** Send a string. I changed the code to use msg instead of a fixed string.
+  */
 //- start uart_sender
 class Sender(frequency: Int, baudRate: Int, msg: String) extends Module {
   val io = IO(new Bundle {
@@ -199,7 +191,7 @@ class Echo(frequency: Int, baudRate: Int) extends Module {
   tx.io.channel <> rx.io.channel
 }
 //- end
-/* 
+/*
 class UartMain(frequency: Int, baudRate: Int) extends Module {
   val io = IO(new Bundle {
     val rxd = Input(UInt(1.W))
@@ -210,7 +202,7 @@ class UartMain(frequency: Int, baudRate: Int) extends Module {
 
   if (doSender) {
     val s = Module(new Sender(frequency, baudRate, "Hello Sir!"))
-    io.txd := s.io.txd  
+    io.txd := s.io.txd
   } else {
     val e = Module(new Echo(frequency, baudRate))
     e.io.rxd := io.rxd
