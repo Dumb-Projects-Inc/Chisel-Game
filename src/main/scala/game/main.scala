@@ -22,7 +22,7 @@ import gameEngine.screen.VGAInterface
 
 import gameEngine.fixed.FixedPointUtils._
 
-class Engine extends Module {
+class Engine(playerX: Double, playerY: Double) extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
     val lookRight = Input(Bool())
@@ -33,9 +33,7 @@ class Engine extends Module {
     val rxd = Input(Bool())
   })
 
-
-
-  val scene = Module(new Scene)
+  val scene = Module(new Scene(playerX, playerY))
   scene.io.rxd := io.rxd
   io.txd := scene.io.txd
   io.vga := scene.io.vga
@@ -54,7 +52,7 @@ class Engine extends Module {
 
 }
 
-class TopModule( /*game input when io works*/ ) extends Module {
+class TopModule(playerX: Double, playerY: Double) extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
     val lookRight = Input(Bool())
@@ -77,10 +75,9 @@ class TopModule( /*game input when io works*/ ) extends Module {
   clk50MHz := pll.io.clk50MHz
   locked := pll.io.locked
   // $COVERAGE-ON$
-  
 
   withClockAndReset(clk50MHz, !locked) {
-    val engine = Module(new Engine)
+    val engine = Module(new Engine(playerX, playerY))
     io.vga := engine.io.vga
     engine.io.lookLeft := io.lookLeft
     engine.io.lookRight := io.lookRight
@@ -91,22 +88,43 @@ class TopModule( /*game input when io works*/ ) extends Module {
   }
 }
 
+import scala.io.StdIn
+
 object gameEngineMain {
   def main(args: Array[String]): Unit = {
-    // Splitting files is expected, and the blackbox will generate syntax errors if not split
+    // Parse start positions from args or prompt the user
+    val (startX, startY) = if (args.length >= 2) {
+      try {
+        (args(0).toDouble, args(1).toDouble)
+      } catch {
+        case _: NumberFormatException =>
+          sys.error(
+            "Invalid start positions. Please provide two numbers: <startX> <startY>"
+          )
+      }
+    } else {
+      print("Enter start X coordinate: ")
+      val x = StdIn.readLine().trim.toDouble
+      print("Enter start Y coordinate: ")
+      val y = StdIn.readLine().trim.toDouble
+      (x, y)
+    }
+
+    // ChiselStage invocation
+    val stageArgs = Array(
+      "--target",
+      "systemverilog",
+      "--target-dir",
+      "generated",
+      "--split-verilog"
+    )
+
     (new ChiselStage).execute(
-      Array(
-        "--target",
-        "systemverilog",
-        "--target-dir",
-        "generated",
-        "--split-verilog"
-      ),
+      stageArgs,
       Seq(
-        ChiselGeneratorAnnotation(() => new TopModule),
+        ChiselGeneratorAnnotation(() => new TopModule(startX, startY)),
         FirtoolOption("--disable-all-randomization")
       )
     )
-
   }
 }
