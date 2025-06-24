@@ -43,7 +43,9 @@ class SpritePlacerSimpleSpec extends AnyFunSpec with ChiselSim with Matchers {
             val visible = dut.io.output.bits.visible.peek().litToBoolean
             val xOffset = dut.io.output.bits.xOffset.peek().litValue
             val invLen = dut.io.output.bits.invLen.peek().litValue
-            println(f"angle = $angle%1.2f | visible = $visible | xOffset = $xOffset | invLen = $invLen")
+            println(
+              f"angle = $angle%1.2f | visible = $visible | xOffset = $xOffset | invLen = $invLen"
+            )
           }
           dut.clock.step()
         }

@@ -115,7 +115,6 @@ class PalettedIndexSprite(
   val cx2 = RegNext(Mux(rx1 >= imageWidth.U, (imageWidth - 1).U, rx1))
   val cy2 = RegNext(Mux(ry1 >= imageHeight.U, (imageHeight - 1).U, ry1))
 
-
   // Quick fix for strange outside sprite bars (makes them transparent)
   /* val outside = (x0 >= scaledW) || (y0 >= scaledH) */
 

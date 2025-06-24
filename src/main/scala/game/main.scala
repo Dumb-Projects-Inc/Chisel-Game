@@ -68,10 +68,12 @@ class TopModule( /*game input when io works*/ ) extends Module {
   val clk50MHz = Wire(Clock())
   val locked = Wire(Bool())
 
+  val resestSync = RegNext(RegNext(RegNext(reset)))
+
   // $COVERAGE-OFF$
   val pll = Module(new PLLBlackBox)
   pll.io.clock := clock
-  pll.io.reset := reset
+  pll.io.reset := resestSync
   clk50MHz := pll.io.clk50MHz
   locked := pll.io.locked
   // $COVERAGE-ON$

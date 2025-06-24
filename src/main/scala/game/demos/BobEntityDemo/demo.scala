@@ -16,7 +16,7 @@ class WallDemo extends Module {
   val io = IO(new Bundle {
     val vga = new VGAInterface
 
-/*     val moveUp = Input(Bool())
+    /*     val moveUp = Input(Bool())
     val moveDown = Input(Bool())
     val moveRight = Input(Bool())
     val moveLeft = Input(Bool()) */
@@ -60,7 +60,7 @@ class WallDemo extends Module {
   bob.io.setPos.wrEn := false.B
   bob.io.setPos.x := 1.U
   bob.io.setPos.y := 1.U
-/*   bob.io.moveUp := io.moveUp
+  /*   bob.io.moveUp := io.moveUp
   bob.io.moveDown := io.moveDown
   bob.io.moveLeft := io.moveLeft
   bob.io.moveRight := io.moveRight */
@@ -74,7 +74,7 @@ class WallDemo extends Module {
   val (y, yWrap) = Counter(xWrap && (state === filling), 240)
 
   val (_, gameTick) = Counter(true.B, 2000000)
-/*   when(gameTick && io.moveDown && scale < 1000.U) {
+  /*   when(gameTick && io.moveDown && scale < 1000.U) {
     scale := scale + 5.U
   }
   when(gameTick && io.moveUp && scale > 5.U) {
@@ -146,7 +146,7 @@ class WallDemoTop extends Module {
 
   withClockAndReset(clk50MHz, !locked) {
     val demo = Module(new WallDemo)
-/*     demo.io.moveUp := io.moveUp
+    /*     demo.io.moveUp := io.moveUp
     demo.io.moveDown := io.moveDown
     demo.io.moveRight := io.moveRight
     demo.io.moveLeft := io.moveLeft */
