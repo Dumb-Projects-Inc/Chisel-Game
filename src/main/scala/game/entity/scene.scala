@@ -52,7 +52,7 @@ class Scene(playerX: Double = 2.5, playerY: Double = 4.5) extends Module {
     "hFF0".U(12.W), // #FFFF00
 
     "hA00".U(12.W), // #AA0000
-    "h0F0".U(12.W), // #FF0000
+    "h0F0".U(12.W), // #00FF00
     "h08F".U(12.W) // #0088FF
   )
 
