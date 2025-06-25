@@ -27,6 +27,7 @@ All testing is done with verilator, if verilator is installed, it should be poss
 
 If using Nix, the flake should set up all needed tools for testing
 
+## Demo Video
 <p align="center">
     <img src="ShortDemo.gif" alt="Short Demo">
 </p>
