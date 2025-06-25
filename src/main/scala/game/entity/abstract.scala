@@ -43,7 +43,6 @@ class ImageSprite(filepath: String, width: Int, height: Int)
   io.transparent := rgb(12)
 }
 
-import chisel3._
 
 class PalettedIndexSprite(
     filepath: String,
