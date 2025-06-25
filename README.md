@@ -26,3 +26,7 @@ Since the game is multi player, two bitstreams are to be generated, one for each
 All testing is done with verilator, if verilator is installed, it should be possible to test by simply running `sbt test`
 
 If using Nix, the flake should set up all needed tools for testing
+
+<p align="center">
+    <img src="ShortDemo.gif" alt="Short Demo">
+</p>
